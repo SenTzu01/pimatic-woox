@@ -22,13 +22,13 @@ module.exports = (env) ->
       @id = @config.id
       @name = @config.name
       
-      @addAttribute  'presence',
+      @addAttribute 'presence',
         description: "online status",
         type: t.boolean
-      @addAttribute  'rgb',
+      @addAttribute 'rgb',
         description: "RGB Color",
         type: t.string
-      @addAttribute  'color',
+      @addAttribute 'color',
         description: "WW Color",
         type: t.number
       @addAttribute 'hue',
@@ -70,6 +70,8 @@ module.exports = (env) ->
       @_mode = lastState?.mode?.value or "white"
       @_rgb = lastState?.rgb?.value or '255,255,255'
       @_hue = lastState?.hue?.value or 0
+      @_saturation = lastState?.saturation?.value or 0
+      @_brightness = lastState?.brightness?.value or 0
       
       @_tuyaDevice = null
       @base.debug "deviceID: #{@config.deviceID}"
@@ -97,6 +99,7 @@ module.exports = (env) ->
     getTemplateName: -> "wooxdimmer-rgb"
     getColor: -> Promise.resolve(0)
     getRgb: -> Promise.resolve(@_rgb)
+    getHsb: -> Promise.resolve([@_hue, @_saturation, @_brightness])
     getPresence: -> Promise.resolve(@_presence)
     getHue: () -> Promise.resolve @_hue
     getSaturation: () -> Promise.resolve @_saturation
@@ -106,7 +109,7 @@ module.exports = (env) ->
       @_updateDevice({
           '1': true
       }).then( () =>  
-        @_setDimlevel(@_dimlevel)
+        @_setDimlevel(100)
         return Promise.resolve()
       
       ).catch( (error) =>
@@ -129,14 +132,21 @@ module.exports = (env) ->
 
     changeDimlevelTo: (level) ->
       if @_dimlevel is level then return Promise.resolve true
+      validate = (v) => cassert(not isNaN(v)) && cassert(0 >= v <= @config.maxBrightness)
+      validate(level)
       
-      if level > 0
+      console.log("Homekit is setting Dimlevel: #{level}")
+      
+      if level > 1
         @_updateDevice({
           '1': true
           '2': 'white'
           '3': Math.floor((@config.maxBrightness-@config.minBrightness)*level/100)+@config.minBrightness
         }).then( () =>
           @_setDimlevel(level)
+          @_setHue(0)
+          @_setSaturation(0)
+          @_setBrightness(100)
           return Promise.resolve()
           
         ).catch( (error) =>
@@ -147,8 +157,12 @@ module.exports = (env) ->
         return @turnOff()
 
     changeHueTo: (hue) ->
+      if hue is @_hue then return Promise.resolve()
       validate = (v) => cassert(not isNaN(v)) && cassert(0 >= v <= 360)
       validate(hue)
+      
+      hue = 1 if hue is 0
+      console.log("Homekit is setting hue: #{hue}")
       
       @_updateDevice({
           '1': true
@@ -156,6 +170,48 @@ module.exports = (env) ->
           '5': @_convertHSBToTuyaHex([hue, @_saturation, @_brightness])
       }).then( () =>
         @_setHue(hue)
+        return Promise.resolve()
+      
+      ).catch( (error) =>
+        return Promise.reject(error)
+      
+      )
+
+    changeSaturationTo: (saturation) ->
+      if saturation is @_saturation then return Promise.resolve()
+      validate = (v) => cassert(not isNaN(v)) && cassert(0 >= v <= 100)
+      validate(saturation)
+      
+      saturation = 1 if saturation is 0
+      console.log("Homekit is setting saturation: #{saturation}")
+      
+      @_updateDevice({
+          '1': true
+          '2': 'colour'
+          '5': @_convertHSBToTuyaHex([@_hue, saturation, @_brightness])
+      }).then( () =>
+        @_setSaturation(saturation)
+        return Promise.resolve()
+      
+      ).catch( (error) =>
+        return Promise.reject(error)
+      
+      )
+
+    changeBrightnessTo: (brightness) ->
+      if brightness is @_brightness then return Promise.resolve()
+      validate = (v) => cassert(not isNaN(v)) && cassert(0 >= v <= 100)
+      validate(brightness)
+      
+      brightness = 1 if brightness is 0
+      console.log("Homekit is setting brightness: #{brightness}")
+      
+      @_updateDevice({
+          '1': true
+          '2': 'colour'
+          '5': @_convertHSBToTuyaHex([@_hue, @_saturation, brightness])
+      }).then( () =>
+        @_setBrightness(brightness)
         return Promise.resolve()
       
       ).catch( (error) =>
