@@ -31,7 +31,15 @@ module.exports = (env) ->
       @addAttribute  'color',
         description: "WW Color",
         type: t.number
-
+      @addAttribute 'hue',
+        description: "Hue value",
+        type: t.number
+      @addAttribute 'saturation',
+        description: "Saturation value",
+        type: t.number
+      @addAttribute 'brightness',
+        description: "Brightness value",
+        type: t.number
       @actions = _.cloneDeep @actions
       @actions.setColor =
         description: 'set light color'
@@ -47,6 +55,11 @@ module.exports = (env) ->
             type: t.number
           b:
             type: t.number
+      @actions.changeHueTo =
+        description: "Sets the hue value"
+        params:
+          hue:
+            type: t.number
       
       super()
       
@@ -56,6 +69,7 @@ module.exports = (env) ->
       @_presence=false
       @_mode = lastState?.mode?.value or "white"
       @_rgb = lastState?.rgb?.value or '255,255,255'
+      @_hue = lastState?.hue?.value or 0
       
       @_tuyaDevice = null
       @base.debug "deviceID: #{@config.deviceID}"
@@ -78,20 +92,19 @@ module.exports = (env) ->
       @_tuyaDevice.on('disconnected', @_onDisconnected)
       @_tuyaDevice.on('data', @_onData)
       @_tuyaDevice.on('error', @_onError)
-      
-      console.log(@)
+    
     
     getTemplateName: -> "wooxdimmer-rgb"
     getColor: -> Promise.resolve(0)
     getRgb: -> Promise.resolve(@_rgb)
     getPresence: -> Promise.resolve(@_presence)
+    getHue: () -> Promise.resolve @_hue
+    getSaturation: () -> Promise.resolve @_saturation
+    getBrightness: () -> Promise.resolve @_brightness
 
     turnOn: -> 
-      @_tuyaDevice.set({
-        multiple: true
-        data: {
+      @_updateDevice({
           '1': true
-        }
       }).then( () =>  
         @_setDimlevel(@_dimlevel)
         return Promise.resolve()
@@ -103,11 +116,8 @@ module.exports = (env) ->
 
     turnOff: ->
       @_lastdimlevel = @_dimlevel
-      @_tuyaDevice.set({
-        multiple: true
-        data: {
-          '1': false
-        }
+      @_updateDevice({
+        '1': false
       }).then( () =>
         @_setDimlevel(0)
         return Promise.resolve()
@@ -119,22 +129,33 @@ module.exports = (env) ->
 
     changeDimlevelTo: (level) ->
       if @_dimlevel is level then return Promise.resolve true
+      
       if level > 0
-        settings = {
+        @_updateDevice({
           '1': true
           '2': 'white'
           '3': Math.floor((@config.maxBrightness-@config.minBrightness)*level/100)+@config.minBrightness
-        }
-      else
-        settings = {
-          '1': false
-        }
+        }).then( () =>
+          @_setDimlevel(level)
+          return Promise.resolve()
+          
+        ).catch( (error) =>
+          return Promise.reject(error)
+        )
       
-      @_tuyaDevice.set({
-        multiple: true
-        data: settings
+      else
+        return @turnOff()
+
+    changeHueTo: (hue) ->
+      validate = (v) => cassert(not isNaN(v)) && cassert(0 >= v <= 360)
+      validate(hue)
+      
+      @_updateDevice({
+          '1': true
+          '2': 'colour'
+          '5': @_convertHSBToTuyaHex([hue, @_saturation, @_brightness])
       }).then( () =>
-        @_setDimlevel(level)
+        @_setHue(hue)
         return Promise.resolve()
       
       ).catch( (error) =>
@@ -151,13 +172,10 @@ module.exports = (env) ->
       validate(b)
       validate(g)
       
-      @_tuyaDevice.set({
-        multiple: true
-        data: {
-          '1': true
-          '2': 'colour'
-          '5': @_convertRGBToTuyaHex([r, g, b])
-        }
+      @_updateDevice({
+        '1': true
+        '2': 'colour'
+        '5': @_convertRGBToTuyaHex([r, g, b])
       }).then( () =>
         @_setRGB([r, g, b])
         return Promise.resolve()
@@ -170,7 +188,7 @@ module.exports = (env) ->
     setHex: (hex) =>
       color = hex.match(/([a-fA-F\d]{6})/)
       if color?
-        rgb = convert.hex.rgb(color)
+        rgb = @_convertHEXToRGB(color)
         @setRGB(rgb[0], rgb[1], rgb[2])
         return Promise.resolve()
       else
@@ -193,10 +211,16 @@ module.exports = (env) ->
       @base.debug "Data received from #{@name}: "
       @base.debug util.inspect(data)
       @_setPresence(true)
-      @_setRGB(@_convertTuyaHexToRGB(data.dps['5'])) if data.dps['5']?
+      
       @_setDimlevel(Math.round( ((data.dps['3']-@config.minBrightness)/(@config.maxBrightness-@config.minBrightness))*100)) if data.dps['3']?
       @_setState(data.dps['1']) if data.dps['1']?
-      
+      if data.dps['5']?
+        hsb = @_convertTuyaHexToHSB(data.dps['5'])
+        @_setRGB(@_convertHSBToRGB(hsb))
+        @_setHue(hsb[0])
+        @_setSaturation(hsb[1])
+        @_setBrightness(hsb[2])
+     
     _onError: (error) =>
       @base.error "Error: #{error}"
     
@@ -208,12 +232,48 @@ module.exports = (env) ->
     _setRGB: (array) =>
       rgb = array.join()
       if @_rgb is rgb then return
+      console.log("Would set @_rgb to: #{rgb}")
       @_rgb = rgb
       @emit "rgb", rgb
     
-    _convertRGBToTuyaHex: (array) =>
-      return @_convertHSBToTuyaHex(convert.rgb.hsv(array))
+    _setHSB: (hsb) =>
+      @_setHue(hsb[0])
+      @_setSaturation(hsb[1])
+      @_setBrightness(hsb[2])
+    
+    _setHue: (hue) =>
+      if @_hue is hue then return
+      console.log("Would set @_hue to: #{hue}")
+      @_hue = hue
+      @emit "hue", hue
       
+    _setSaturation: (saturation) =>
+      if @_saturation is saturation then return
+      console.log("Would set @_saturation to: #{saturation}")
+      @_saturation = saturation
+      @emit "saturation", saturation
+
+    _setBrightness: (brightness) =>
+      if @_brightness is brightness then return
+      console.log("Would set @_brightness to: #{brightness}")
+      @_brightness = brightness
+      @emit "brightness", brightness
+    
+    _convertHEXToRGB: (value) =>
+      return convert.hex.rgb(value)
+    
+    _convertRGBToHSB: (array) =>
+      return convert.rgb.hsv(array)
+      
+    _convertHSBToRGB: (array) =>
+      return convert.hsv.rgb(array)
+      
+    _convertRGBToTuyaHex: (array) =>
+      return @_convertHSBToTuyaHex(@_convertRGBToHSB(array))
+    
+    _convertTuyaHexToRGB: (value) =>
+      return @_convertHSBToRGB(@_convertTuyaHexToHSB(value))
+    
     _convertHSBToTuyaHex: (value) =>
       h = value[0]
       s = value[1]
@@ -243,15 +303,18 @@ module.exports = (env) ->
       hex = rgb.join('')
       return hex + hsb
     
-    _convertTuyaHexToRGB: (value) =>
-      return convert.hsv.rgb(@_convertTuyaHexToHSB(value))
-    
     _convertTuyaHexToHSB: (value) =>
       hsb = (value || '0000000000ffff').match(/^.{6}([0-9a-f]{4})([0-9a-f]{2})([0-9a-f]{2})$/i) || [0, '0', 'ff', 'ff']
       h = hsb[1]
       s = hsb[2]
       b = hsb[3]
       return [ parseInt(h, 16), Math.round(parseInt(s, 16) / 2.55), Math.round(parseInt(b, 16) / 2.55) ]
+    
+    _updateDevice: (settings) =>
+      @_tuyaDevice.set({
+        multiple: true
+        data: settings
+      })
     
     destroy: ->
       @_tuyaDevice.disconnect() if @_tuyaDevice.isConnected
