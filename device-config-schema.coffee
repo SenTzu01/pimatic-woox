@@ -3,6 +3,7 @@ module.exports = {
   WooxRGBWLight: {
     title: "Woox RGBW Light configuration"
     type: "object"
+    extensions: ["xConfirm"]
     properties:
       deviceID:
         description: "The ID of the Woox RGBW Light"

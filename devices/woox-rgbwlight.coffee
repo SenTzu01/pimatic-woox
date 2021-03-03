@@ -13,19 +13,14 @@ module.exports = (env) ->
   class WooxRGBWLight extends env.devices.DimmerActuator
     
     template: 'wooxdimmer-rgb'
-
+    _presence: false
+    
     constructor: (@config, plugin, lastState) ->
       @debug = plugin.config.debug ? false
       @base = commons.base @, @config.class
       
       @id = @config.id
       @name = @config.name
-      
-      @_dimlevel = lastState?.dimlevel?.value or 0
-      @_state = lastState?.state?.value or off
-      @_presence=false
-      @_mode = lastState?.mode?.value or "white"
-      @_rgb = lastState?.rgb?.value or '255,255,255'
       
       @addAttribute  'presence',
         description: "online status",
@@ -37,6 +32,7 @@ module.exports = (env) ->
         description: "WW Color",
         type: t.number
 
+      @actions = _.cloneDeep @actions
       @actions.setColor =
         description: 'set light color'
         params:
@@ -51,29 +47,39 @@ module.exports = (env) ->
             type: t.number
           b:
             type: t.number
-
-      @_device = null
+      
+      super()
+      
+      @_dimlevel = lastState?.dimlevel?.value or 0
+      @_oldDimlevel = if @_dimlevel > 0 then @_dimlevel else 100
+      @_state = lastState?.state?.value or off
+      @_presence=false
+      @_mode = lastState?.mode?.value or "white"
+      @_rgb = lastState?.rgb?.value or '255,255,255'
+      
+      @_tuyaDevice = null
       @base.debug "deviceID: #{@config.deviceID}"
       @base.debug "deviceKey: #{@config.deviceKey}"
-      @_device = new TuyAPI({
+      @_tuyaDevice = new TuyAPI({
         id: @config.deviceID
         key: @config.deviceKey
       })
 
       process.nextTick( () =>
-        @_device.find().then( () =>
-          @config.ip = @_device.device.ip
-          @config.port = @_device.device.port
-          @_device.connect()
-          @base.debug util.inspect(@_device)
+        @_tuyaDevice.find().then( () =>
+          @config.ip = @_tuyaDevice.device.ip
+          @config.port = @_tuyaDevice.device.port
+          @_tuyaDevice.connect()
+          @base.debug util.inspect(@_tuyaDevice)
         )
       )
       
-      @_device.on('connected', @_onConnected)
-      @_device.on('disconnected', @_onDisconnected)
-      @_device.on('data', @_onData)
-      @_device.on('error', @_onError)
-      super()
+      @_tuyaDevice.on('connected', @_onConnected)
+      @_tuyaDevice.on('disconnected', @_onDisconnected)
+      @_tuyaDevice.on('data', @_onData)
+      @_tuyaDevice.on('error', @_onError)
+      
+      console.log(@)
     
     getTemplateName: -> "wooxdimmer-rgb"
     getColor: -> Promise.resolve(0)
@@ -81,7 +87,7 @@ module.exports = (env) ->
     getPresence: -> Promise.resolve(@_presence)
 
     turnOn: -> 
-      @_device.set({
+      @_tuyaDevice.set({
         multiple: true
         data: {
           '1': true
@@ -97,7 +103,7 @@ module.exports = (env) ->
 
     turnOff: ->
       @_lastdimlevel = @_dimlevel
-      @_device.set({
+      @_tuyaDevice.set({
         multiple: true
         data: {
           '1': false
@@ -124,8 +130,7 @@ module.exports = (env) ->
           '1': false
         }
       
-      @_setDimlevel(level)
-      @_device.set({
+      @_tuyaDevice.set({
         multiple: true
         data: settings
       }).then( () =>
@@ -146,7 +151,7 @@ module.exports = (env) ->
       validate(b)
       validate(g)
       
-      @_device.set({
+      @_tuyaDevice.set({
         multiple: true
         data: {
           '1': true
@@ -249,10 +254,10 @@ module.exports = (env) ->
       return [ parseInt(h, 16), Math.round(parseInt(s, 16) / 2.55), Math.round(parseInt(b, 16) / 2.55) ]
     
     destroy: ->
-      @_device.disconnect() if @_device.isConnected
-      @_device.removeListener('connected', @_onConnected)
-      @_device.removeListener('disconnected', @_onDisconnected)
-      @_device.removeListener('data', @_onData)
-      @_device.removeListener('error', @_onError)
-      @_device = null
+      @_tuyaDevice.disconnect() if @_tuyaDevice.isConnected
+      @_tuyaDevice.removeListener('connected', @_onConnected)
+      @_tuyaDevice.removeListener('disconnected', @_onDisconnected)
+      @_tuyaDevice.removeListener('data', @_onData)
+      @_tuyaDevice.removeListener('error', @_onError)
+      @_tuyaDevice = null
       super()
