@@ -122,8 +122,8 @@ module.exports = (env) ->
         settings[3] = Math.floor((@config.maxBrightness-@config.minBrightness)*dimlevel/100)+@config.minBrightness
       
       @_updateDevice(settings).then( (result) =>
-        console.log("result:")
-        console.log(util.inspect(result))
+        #console.log("result:")
+        #console.log(util.inspect(result))
         @_setMode('white')
         @_setHSB([@_hue, @_saturation, dimlevel])
         @_setRGB(@_convertHSBToRGB([@_hue, @_saturation, dimlevel]))
