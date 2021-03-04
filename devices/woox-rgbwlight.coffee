@@ -25,6 +25,9 @@ module.exports = (env) ->
       @addAttribute 'presence',
         description: "online status",
         type: t.boolean
+      @addAttribute 'mode',
+        description: "RGB or White",
+        type: t.string
       @addAttribute 'rgb',
         description: "RGB Color",
         type: t.string
@@ -63,15 +66,14 @@ module.exports = (env) ->
       
       super()
       
-      @_dimlevel = lastState?.dimlevel?.value or 0
-      @_oldDimlevel = if @_dimlevel > 0 then @_dimlevel else 100
+      @_presence = false
       @_state = lastState?.state?.value or off
-      @_presence=false
       @_mode = lastState?.mode?.value or "white"
       @_rgb = lastState?.rgb?.value or '255,255,255'
       @_hue = lastState?.hue?.value or 0
       @_saturation = lastState?.saturation?.value or 0
       @_brightness = lastState?.brightness?.value or 0
+      @_dimlevel = lastState?.dimlevel?.value or 0
       
       @_tuyaDevice = null
       @base.debug "deviceID: #{@config.deviceID}"
@@ -86,7 +88,7 @@ module.exports = (env) ->
           @config.ip = @_tuyaDevice.device.ip
           @config.port = @_tuyaDevice.device.port
           @_tuyaDevice.connect()
-          @base.debug util.inspect(@_tuyaDevice)
+          #@base.debug util.inspect(@_tuyaDevice)
         )
       )
       
@@ -101,145 +103,94 @@ module.exports = (env) ->
     getRgb: -> Promise.resolve(@_rgb)
     getHsb: -> Promise.resolve([@_hue, @_saturation, @_brightness])
     getPresence: -> Promise.resolve(@_presence)
+    getMode: -> Promise.resolve(@_mode)
     getHue: () -> Promise.resolve @_hue
     getSaturation: () -> Promise.resolve @_saturation
     getBrightness: () -> Promise.resolve @_brightness
 
-    turnOn: -> 
-      @_updateDevice({
-          '1': true
-      }).then( () =>  
-        @_setDimlevel(100)
-        return Promise.resolve()
+    turnOn: -> @changeDimlevelTo(100)
+    turnOff: -> @changeDimlevelTo(0)
+
+    changeDimlevelTo: (dimlevel) ->
+      @base.debug("Setting Dimlevel: #{dimlevel}")
       
+      @_setDimlevel(dimlevel)
+      
+      settings = {1: @_state}
+      if @_state
+        settings[2] = 'white'
+        settings[3] = Math.floor((@config.maxBrightness-@config.minBrightness)*dimlevel/100)+@config.minBrightness
+      
+      @_updateDevice(settings).then( (result) =>
+        console.log("result:")
+        console.log(util.inspect(result))
+        @_setMode('white')
+        @_setHSB([@_hue, @_saturation, dimlevel])
+        @_setRGB(@_convertHSBToRGB([@_hue, @_saturation, dimlevel]))
+        
+        return Promise.resolve(result)
+        
       ).catch( (error) =>
         return Promise.reject(error)
-      
       )
-
-    turnOff: ->
-      @_lastdimlevel = @_dimlevel
-      @_updateDevice({
-        '1': false
-      }).then( () =>
-        @_setDimlevel(0)
-        return Promise.resolve()
-      
-      ).catch( (error) =>
-        return Promise.reject(error)
-      
-      )
-
-    changeDimlevelTo: (level) ->
-      if @_dimlevel is level then return Promise.resolve true
-      validate = (v) => cassert(not isNaN(v)) && cassert(0 >= v <= @config.maxBrightness)
-      validate(level)
-      
-      console.log("Homekit is setting Dimlevel: #{level}")
-      
-      if level > 1
-        @_updateDevice({
-          '1': true
-          '2': 'white'
-          '3': Math.floor((@config.maxBrightness-@config.minBrightness)*level/100)+@config.minBrightness
-        }).then( () =>
-          @_setDimlevel(level)
-          @_setHue(0)
-          @_setSaturation(0)
-          @_setBrightness(100)
-          return Promise.resolve()
-          
-        ).catch( (error) =>
-          return Promise.reject(error)
-        )
-      
-      else
-        return @turnOff()
-
+    
     changeHueTo: (hue) ->
-      if hue is @_hue then return Promise.resolve()
-      validate = (v) => cassert(not isNaN(v)) && cassert(0 >= v <= 360)
-      validate(hue)
+      @base.debug("Homekit is setting hue: #{hue}")
       
-      hue = 1 if hue is 0
-      console.log("Homekit is setting hue: #{hue}")
-      
-      @_updateDevice({
-          '1': true
-          '2': 'colour'
-          '5': @_convertHSBToTuyaHex([hue, @_saturation, @_brightness])
-      }).then( () =>
-        @_setHue(hue)
-        return Promise.resolve()
-      
-      ).catch( (error) =>
-        return Promise.reject(error)
-      
-      )
+      @_setHue(hue)
+      @_setState(true)
+      settings = {
+        1: true
+        2: 'colour'
+        5: @_convertHSBToTuyaHex([hue, @_saturation, @_brightness])
+      }
+      @_updateDevice(settings)
 
     changeSaturationTo: (saturation) ->
-      if saturation is @_saturation then return Promise.resolve()
-      validate = (v) => cassert(not isNaN(v)) && cassert(0 >= v <= 100)
-      validate(saturation)
+      @base.debug("Homekit is setting saturation: #{saturation}")
       
-      saturation = 1 if saturation is 0
-      console.log("Homekit is setting saturation: #{saturation}")
-      
-      @_updateDevice({
-          '1': true
-          '2': 'colour'
-          '5': @_convertHSBToTuyaHex([@_hue, saturation, @_brightness])
-      }).then( () =>
-        @_setSaturation(saturation)
-        return Promise.resolve()
-      
-      ).catch( (error) =>
-        return Promise.reject(error)
-      
-      )
+      @_setSaturation(saturation)
+      @_setState(true)
+      settings = {
+        1: true
+        2: 'colour'
+        5: @_convertHSBToTuyaHex([@_hue, saturation, @_brightness])
+      }
+      @_updateDevice(settings)
 
     changeBrightnessTo: (brightness) ->
-      if brightness is @_brightness then return Promise.resolve()
-      validate = (v) => cassert(not isNaN(v)) && cassert(0 >= v <= 100)
-      validate(brightness)
+      @base.debug("Homekit is setting brightness: #{brightness}")
       
-      brightness = 1 if brightness is 0
-      console.log("Homekit is setting brightness: #{brightness}")
+      @_setBrightness(brightness)
+      @_setDimlevel(brightness)
       
-      @_updateDevice({
-          '1': true
-          '2': 'colour'
-          '5': @_convertHSBToTuyaHex([@_hue, @_saturation, brightness])
-      }).then( () =>
-        @_setBrightness(brightness)
-        return Promise.resolve()
+      settings = {1: @_state}
+      if @_state
+        settings['2'] = 'colour'
+        settings['5'] = @_convertHSBToTuyaHex([@_hue, @_saturation, brightness])
       
-      ).catch( (error) =>
-        return Promise.reject(error)
-      
-      )
+      @_updateDevice(settings)
     
     setColor: (color) =>
       return Promise.resolve()
     
     setRGB: (r, g, b) =>
-      validate = (v) => cassert(not isNaN(v)) && cassert(0 >= v <= 255)
+      validate = (value) => cassert(not isNaN(value)) && cassert(0 >= value <= 255)
       validate(r)
       validate(b)
       validate(g)
       
-      @_updateDevice({
-        '1': true
-        '2': 'colour'
-        '5': @_convertRGBToTuyaHex([r, g, b])
-      }).then( () =>
-        @_setRGB([r, g, b])
-        return Promise.resolve()
+      hsb = @_convertRGBToHSB([r, g, b])
+      @_setHSB(hsb)
+      @_setRGB([r, g, b])
+      @_setDimlevel(hsb[2])
       
-      ).catch( (error) =>
-        return Promise.reject(error)
-      
-      )
+      settings = {1: @_state}
+      if @_state
+        settings['2'] = 'colour'
+        settings['5'] = @_convertHSBToTuyaHex(hsb)   
+
+      @_updateDevice(settings)
       
     setHex: (hex) =>
       color = hex.match(/([a-fA-F\d]{6})/)
@@ -249,11 +200,6 @@ module.exports = (env) ->
         return Promise.resolve()
       else
         return Promise.reject()
-    
-    _setPresence: (value) ->
-      if @_presence is value then return
-      @_presence = value
-      @emit 'presence', value
     
     _onConnected: () =>
       @base.info "Connected to #{@name}"
@@ -266,29 +212,36 @@ module.exports = (env) ->
     _onData: (data) =>
       @base.debug "Data received from #{@name}: "
       @base.debug util.inspect(data)
-      @_setPresence(true)
       
-      @_setDimlevel(Math.round( ((data.dps['3']-@config.minBrightness)/(@config.maxBrightness-@config.minBrightness))*100)) if data.dps['3']?
-      @_setState(data.dps['1']) if data.dps['1']?
-      if data.dps['5']?
-        hsb = @_convertTuyaHexToHSB(data.dps['5'])
-        @_setRGB(@_convertHSBToRGB(hsb))
-        @_setHue(hsb[0])
-        @_setSaturation(hsb[1])
-        @_setBrightness(hsb[2])
+      @_setPresence(true)
+      if data.dps['1']? then @_setState(data.dps['1'])
+      if @_state
+        if data.dps['2']? then @_setMode(data.dps['2'])
+        if data.dps['3']? then @_setDimlevel(Math.round( ((data.dps['3']-@config.minBrightness)/(@config.maxBrightness-@config.minBrightness))*100))
+        if data.dps['5']?
+          hsb = @_convertTuyaHexToHSB(data.dps['5'])
+          @_setRGB(@_convertHSBToRGB(hsb))
+          @_setHSB(hsb)
      
     _onError: (error) =>
       @base.error "Error: #{error}"
-    
+  
+    _setPresence: (value) ->
+      if @_presence is value then return
+      @base.debug("Set @_presence to: #{value}")
+      @_presence = value
+      @emit 'presence', value
+      
     _setMode: (mode) =>
       if @_mode is mode then return
+      @base.debug("Set @_mode to: #{mode}")
       @_mode = mode
-      @emit "color", mode
+      @emit "mode", mode
     
     _setRGB: (array) =>
       rgb = array.join()
       if @_rgb is rgb then return
-      console.log("Would set @_rgb to: #{rgb}")
+      @base.debug("Setting @_rgb to: #{rgb}")
       @_rgb = rgb
       @emit "rgb", rgb
     
@@ -298,37 +251,56 @@ module.exports = (env) ->
       @_setBrightness(hsb[2])
     
     _setHue: (hue) =>
+      @base.debug("Setting @_hue to: #{hue}")
+      
+      hue = parseFloat(hue)
+      assert(not isNaN(hue))
+      cassert hue >= 0
+      cassert hue <= 360
       if @_hue is hue then return
-      console.log("Would set @_hue to: #{hue}")
+      
       @_hue = hue
       @emit "hue", hue
       
     _setSaturation: (saturation) =>
+      @base.debug("Setting @_saturation to: #{saturation}")
+      
+      saturation = parseFloat(saturation)
+      assert(not isNaN(saturation))
+      cassert saturation >= 0
+      cassert saturation <= 100
       if @_saturation is saturation then return
-      console.log("Would set @_saturation to: #{saturation}")
+      
       @_saturation = saturation
       @emit "saturation", saturation
 
     _setBrightness: (brightness) =>
+      @base.debug("Setting @_brightness to: #{brightness}")
+      
+      brightness = parseFloat(brightness)
+      assert(not isNaN(brightness))
+      cassert brightness >= 0
+      cassert brightness <= 100
       if @_brightness is brightness then return
-      console.log("Would set @_brightness to: #{brightness}")
+      
+      @_setDimlevel(brightness)
       @_brightness = brightness
       @emit "brightness", brightness
     
     _convertHEXToRGB: (value) =>
       return convert.hex.rgb(value)
     
-    _convertRGBToHSB: (array) =>
-      return convert.rgb.hsv(array)
+    _convertRGBToHSB: (rgb) =>
+      return convert.rgb.hsv(rgb)
       
-    _convertHSBToRGB: (array) =>
-      return convert.hsv.rgb(array)
+    _convertHSBToRGB: (hsb) =>
+      return convert.hsv.rgb(hsb)
       
-    _convertRGBToTuyaHex: (array) =>
-      return @_convertHSBToTuyaHex(@_convertRGBToHSB(array))
+    _convertRGBToTuyaHex: (rgb) =>
+      return @_convertHSBToTuyaHex(@_convertRGBToHSB(rgb))
     
-    _convertTuyaHexToRGB: (value) =>
-      return @_convertHSBToRGB(@_convertTuyaHexToHSB(value))
+    _convertTuyaHexToRGB: (tuyaHex) =>
+      return @_convertHSBToRGB(@_convertTuyaHexToHSB(tuyaHex))
     
     _convertHSBToTuyaHex: (value) =>
       h = value[0]
