@@ -38,7 +38,7 @@ module.exports = (env) ->
           @framework.deviceManager.registerDeviceClass(className, {
             configDef: deviceConfigDef[className],
             createCallback: (config, lastState) =>
-              return new classType(config, @, lastState)
+              return new classType(config, @, lastState, @framework)
           })
 
       for provider in actionProviders

@@ -1,26 +1,19 @@
 $(document).on "templateinit", (event) ->
 
-##############################################################
-# WooxDimmerSliderItem - Only Dimmer
-##############################################################
-  class WooxDimmerSliderItem extends pimatic.SwitchItem
+  class WooxDimmerItem extends pimatic.SwitchItem
 
     constructor: (templData, @device) ->
       super(templData, @device)
-      #DIMMER
-      @getAttribute('presence').value.subscribe( =>
-        @updateClass()
-      )
       @dsliderId = "dimmer-#{templData.deviceId}"
       dimAttribute = @getAttribute('dimlevel')
-      unless dimAttribute?
-        throw new Error("A dimmer device needs an dimlevel attribute!")
       dimlevel = dimAttribute.value
       @dsliderValue = ko.observable(if dimlevel()? then dimlevel() else 0)
       dimAttribute.value.subscribe( (newDimlevel) =>
         @dsliderValue(newDimlevel)
         pimatic.try => @dsliderEle.slider('refresh')
       )
+
+    getItemTemplate: => 'light-dimmer'
 
     onSliderStop: ->
       @dsliderEle.slider('disable')
@@ -33,7 +26,6 @@ $(document).on "templateinit", (event) ->
 
     afterRender: (elements) ->
       super(elements)
-      @presenceEle = $(elements).find('.attr-presence')
       @updateClass()
       @dsliderEle = $(elements).find('#' + @dsliderId)
       @dsliderEle.slider()
@@ -45,6 +37,7 @@ $(document).on "templateinit", (event) ->
       )
 
     updateClass: ->
+      return
       value = @getAttribute('presence').value()
       if @presenceEle?
         switch value
@@ -59,68 +52,29 @@ $(document).on "templateinit", (event) ->
             @presenceEle.removeClass('value-present')
         return
 
-##############################################################
-# WooxDimmerTempSliderItem
-##############################################################
-  class WooxDimmerTempSliderItem extends WooxDimmerSliderItem
-    constructor: (templData, @device) ->
-      super(templData, @device)
-      #COLOR
-      @csliderId = "color-#{templData.deviceId}"
-      colorAttribute = @getAttribute('color')
-      unless colorAttribute?
-        throw new Error("A dimmer device needs an color attribute!")
-      color = colorAttribute.value
-      @csliderValue = ko.observable(if color()? then color() else 0)
-      colorAttribute.value.subscribe( (newColor) =>
-        @csliderValue(newColor)
-        pimatic.try => @csliderEle.slider('refresh')
-      )
-
-    onSliderStop2: ->
-      @csliderEle.slider('disable')
-      @device.rest.setColor( {colorCode: @csliderValue()}, global: no).done(ajaxShowToast)
-      .fail( =>
-        pimatic.try => @csliderEle.val(@getAttribute('color').value()).slider('refresh')
-      ).always( =>
-        pimatic.try( => @csliderEle.slider('enable'))
-      ).fail(ajaxAlertFail)
-
-    afterRender: (elements) ->
-      @csliderEle = $(elements).find('#' + @csliderId)
-      @csliderEle.slider()
-      super(elements)
-      $('#index').on("slidestop", " #item-lists #"+@csliderId, (event) ->
-          cddev = ko.dataFor(this)
-          cddev.onSliderStop2()
-          return
-      )
-
-##############################################################
-# WooxDimmerTempSliderItem
-##############################################################
-  class WooxDimmerRGBItem extends WooxDimmerSliderItem
+  class WooxDimmerRGBItem extends WooxDimmerItem
     constructor: (templData, @device) ->
       super(templData, @device)
       @_colorChanged = false
-      #COLOR
       @csliderId = "color-#{templData.deviceId}"
-      colorAttribute = @getAttribute('color')
-      unless colorAttribute?
-        throw new Error("A dimmer device needs a color attribute!")
-      color = colorAttribute.value
-      @csliderValue = ko.observable(if color()? then color() else 0)
-      colorAttribute.value.subscribe( (newColor) =>
-        @csliderValue(newColor)
+      ctAttribute = @getAttribute('ct')
+      unless ctAttribute?
+        throw new Error("A dimmer device needs an ct attribute!")
+      ct = ctAttribute.value
+      @csliderValue = ko.observable(if ct()? then ct() else 0)
+      ctAttribute.value.subscribe( (newCt) =>
+        @csliderValue(newCt)
         pimatic.try => @csliderEle.slider('refresh')
       )
       @pickId = "pick-#{templData.deviceId}"
 
+    getItemTemplate: => 'light-rgbct'
+
     onSliderStop2: ->
       @csliderEle.slider('disable')
-      @device.rest.setColor( {colorCode: @csliderValue()}, global: no).done(ajaxShowToast)
+      @device.rest.setCT( {colorCode: @csliderValue()}, global: no).done(ajaxShowToast)
       .fail( =>
-        pimatic.try => @csliderEle.val(@getAttribute('color').value()).slider('refresh')
+        pimatic.try => @csliderEle.val(@getAttribute('ct').value()).slider('refresh')
       ).always( =>
         pimatic.try( => @csliderEle.slider('enable'))
       ).fail(ajaxAlertFail)
@@ -139,69 +93,33 @@ $(document).on "templateinit", (event) ->
       )
       @colorPicker = $(elements).find('.light-color')
       @colorPicker.spectrum
-        preferredFormat: 'rgb'
+        preferredFormat: 'hex'
         showButtons: false
         allowEmpty: true
+        showInput: true
+
       $('.sp-container').addClass('ui-corner-all ui-shadow')
 
+      @colorPicker.on 'change', (e, payload) =>
+        return if payload?.origin unless 'remote'
+        @colorPicker.spectrum 'set', $(e.target).val()
+      @_onRemoteChange 'color', @colorPicker
+      @colorPicker.spectrum 'set', @color()
+
+    _onRemoteChange: (attributeString, el) ->
+      attribute = @getAttribute(attributeString)
+      unless attributeString?
+        throw new Error("An RGBCT-Light device needs an #{attributeString} attribute!")
+
+      @[attributeString] = ko.observable attribute.value()
+      attribute.value.subscribe (newValue) =>
+        @[attributeString] newValue
+        el.val(@[attributeString]()).trigger 'change', [origin: 'remote']
+
     _changeColor: (color) ->
-      r = @colorPicker.spectrum('get').toRgb()['r']
-      g = @colorPicker.spectrum('get').toRgb()['g']
-      b = @colorPicker.spectrum('get').toRgb()['b']
-      return @device.rest.setRGB(
-          {r: r, g: g, b: b}, global: no
+      color = @colorPicker.spectrum('get').toHex()
+      return @device.rest.setColor(
+          {colorCode: color}, global: no
         ).then(ajaxShowToast, ajaxAlertFail)
-
-##############################################################
-# WooxDimmerTempSliderItem
-##############################################################
-  class WooxDimmerTempButtonItem extends WooxDimmerSliderItem
-    constructor: (templData, @device) ->
-      super(templData, @device)
-      @warmId = "wbutton-#{templData.deviceId}"
-      @normalId = "nbutton-#{templData.deviceId}"
-      @coldId = "cbutton-#{templData.deviceId}"
-
-    afterRender: (elements) ->
-      super(elements)
-      @warmButton = $(elements).find('[name=warmButton]')
-
-    setWarm: -> @setColor "warm"
-
-    setCold: -> @setColor "cold"
-
-    setNormal: -> @setColor "normal"
-
-    setColor: (temp) ->
-        @device.rest.setColorFix({colorCode: temp}, global: no)
-          .done(ajaxShowToast)
-          .fail(ajaxAlertFail)
-
-
-  class WooxHubItem extends pimatic.PresenceItem
-    constructor: (templData, @device) ->
-      super(templData, @device)
-      @rbutID = "rbutton-#{templData.deviceId}"
-      @dbutID = "dbutton-#{templData.deviceId}"
-
-    getItemTemplate: => 'wooxhub'
-
-    afterRender: (elements) ->
-      super(elements)
-
-    setReboot: ->
-      if confirm __("Do you really want to restart the hub")
-        @device.rest.setReboot(global: no)
-          .done(ajaxShowToast)
-          .fail(ajaxAlertFail)
-
-    setDiscovery: ->
-      @device.rest.setDiscovery(global: no)
-        .done(ajaxShowToast)
-        .fail(ajaxAlertFail)
-
-  pimatic.templateClasses['wooxdimmer-dimmer'] = WooxDimmerSliderItem
-  pimatic.templateClasses['wooxdimmer-temp'] = WooxDimmerTempSliderItem
-  pimatic.templateClasses['wooxdimmer-temp-buttons'] = WooxDimmerTempButtonItem
+        
   pimatic.templateClasses['wooxdimmer-rgb'] = WooxDimmerRGBItem
-  pimatic.templateClasses['wooxhub'] = WooxHubItem

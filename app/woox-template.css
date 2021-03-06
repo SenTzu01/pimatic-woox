@@ -1,5 +1,36 @@
 
-li.sortable.woox-device label {
+.light-container {}
+
+.light-label-container, .light-color-container, .light-brightness-container {
+    float: left;
+}
+
+.light-color-container{
+  padding-left: 15px;
+}
+
+.light-label-container{
+  width: 20%;
+  margin-right: 5px;
+}
+
+.light-brightness-container .ui-slider {
+  margin-top: 3px;
+}
+
+.light-brightness-container {
+  width: 40%;
+  height: 30px;
+  margin-left: 5px;
+}
+
+.light-power-container {
+  /*margin-right: 20%;*/
+  /*margin-top: -20px;*/
+}
+
+
+li.sortable.wooxdimmer-rgb-device label {
   float: left;
 }
 
@@ -7,42 +38,42 @@ ul.items .ui-slider-input{
   display: none;
 }
 
-ul.items .woox-device div.item-inner .ui-slider-track {
+ul.items .wooxdimmer-rgb-device div.item-inner .ui-slider-track {
   margin-left: 22px;
   margin-right: 8px;
 }
 
-ul.items .woox-device .ui-slider {
+ul.items .wooxdimmer-rgb-device .ui-slider {
   float: right;
   margin: 1px 4px -1px 5px;
   width: 12em;
 }
 
-ul.items .woox-device .ui-dimlevel {
+ul.items .wooxdimmer-rgb-device .ui-dimlevel {
   float: right;
   min-height: 30px;
 }
 
-ul.items .woox-device .ui-dimlevel .ui-slider-track {
+ul.items .wooxdimmer-rgb-device .ui-dimlevel .ui-slider-track {
   background-image: linear-gradient(to right, rgba(255, 255, 255, 0), rgba(255, 255, 255, 1));
 }
 
-ul.items .woox-device .ui-dimlevel .ui-slider-track .ui-slider-bg {
+ul.items .wooxdimmer-rgb-device .ui-dimlevel .ui-slider-track .ui-slider-bg {
   background: none;
 }
 
-ul.items .woox-device .ui-color .ui-slider-track {
+ul.items .wooxdimmer-rgb-device .ui-color .ui-slider-track {
   background: linear-gradient(to right, hsl(195, 100%, 85%), White, hsl(51, 100%, 85%));
 }
-ul.items .woox-device .ui-color .ui-slider-bg {
+ul.items .wooxdimmer-rgb-device .ui-color .ui-slider-bg {
   background: none;
 }
 
-ul.items .woox-device .ui-dimlevel .ui-slider-track .ui-slider-bg {
+ul.items .wooxdimmer-rgb-device .ui-dimlevel .ui-slider-track .ui-slider-bg {
   background: none;
 }
 
-ul.items .woox-device div.ui-spacer {
+ul.items .wooxdimmer-rgb-device div.ui-spacer {
   width: 123px;
   height: 30px;
   margin-left: 10px;
@@ -50,51 +81,54 @@ ul.items .woox-device div.ui-spacer {
 }
 
 
-ul.items .woox-device .ui-color {
+ul.items .wooxdimmer-rgb-device .ui-color {
   float: right;
   clear: right;
   min-height: 30px;
   margin-top: 8px;
 }
 
-ul.items .woox-device .ui-temp {
+ul.items .wooxdimmer-rgb-device .ui-temp {
   float: right;
   clear: right;
   min-height: 30px;
   margin-top: 8px;
 }
 
+.button-control.ui-controlgroup.ui-controlgroup-horizontal.ui-corner-all.ui-mini.no-carousel-slide.wooxdimmer-rgb {
+  margin-right: 30px
+}
 
-ul.items .woox-device .ui-temp .wbutton {
+ul.items .wooxdimmer-rgb-device .ui-temp .wbutton {
   background-color: #efd275;
 }
 
-ul.items .woox-device .ui-temp .nbutton {
+ul.items .wooxdimmer-rgb-device .ui-temp .nbutton {
   background-color: #f1e0b5;
 }
 
-ul.items .woox-device .ui-temp .cbutton {
+ul.items .wooxdimmer-rgb-device .ui-temp .cbutton {
   background-color: #f5faf6;
 }
 
-ul.items .woox-device .presence {
+ul.items .wooxdimmer-rgb-device .presence {
   float: right;
   margin-top: 6px;
 }
 
-ul.items .woox-device div.ui-smallspacer {
+ul.items .wooxdimmer-rgb-device div.ui-smallspacer {
   width: 10px;
   height: 5px;
   float: right;
 }
 
-ul.items .woox-device div.ui-midspacer {
+ul.items .wooxdimmer-rgb-device div.ui-midspacer {
   width: 30px;
   height: 5px;
   float: right;
 }
 
-ul.items .woox-device .ui-colorpicker div.sp-replacer {
+ul.items .wooxdimmer-rgb-device .ui-colorpicker div.sp-replacer {
   height: 1.75em;
   margin-left: auto;
   margin-right: auto;
@@ -104,22 +138,22 @@ ul.items .woox-device .ui-colorpicker div.sp-replacer {
   min-height: 30px;
 }
 
-ul.items .woox-device .ui-colorpicker div.sp-preview {
+ul.items .wooxdimmer-rgb-device .ui-colorpicker div.sp-preview {
   width: 123px;
   height: 100%;
   border-radius: 3em;
   border-width: 0px;
 }
 
-ul.items .woox-device .ui-colorpicker div.ui-state-disabled {
+ul.items .wooxdimmer-rgb-device .ui-colorpicker div.ui-state-disabled {
   box-shadow: 0px 0px 0px 2px silver;
 }
 
-ul.items .woox-device .ui-colorpicker div.sp-preview-inner {
+ul.items .wooxdimmer-rgb-device .ui-colorpicker div.sp-preview-inner {
   border-radius: inherit;
 }
 
-ul.items .woox-device .ui-colorpicker div.sp-dd {
+ul.items .wooxdimmer-rgb-device .ui-colorpicker div.sp-dd {
   display: none;
 }
 
@@ -133,7 +167,11 @@ div.sp-container {
   background-color: white;
 }
 
-ul.items .woox-device div.ui-colorpicker-spacer {
+a .ui-btn .wooxdimmer-rgb-device {
+  margin-left: 0px;
+}
+
+ul.items .wooxdimmer-rgb-device div.ui-colorpicker-spacer {
   width: 30px;
   height: 30px;
   margin-left: 10px;
@@ -141,7 +179,31 @@ ul.items .woox-device div.ui-colorpicker-spacer {
 }
 
 @media only screen and (max-width:380px){
-    ul.items .woox-device .ui-slider {
+    ul.items .wooxdimmer-rgb-device .ui-slider {
       width: 10em;
     }
 }
+
+
+.button-box-old {
+  border: 0px solid #ccc;
+  overflow: visible;
+  background-color: #fff;
+  display:inline-block;
+  box-shadow: 0 0 2px 2px rgb(247,247,247) /*{pm-items-shadow-color}*/;
+}
+.button-box {
+  overflow: visible;
+  display: inline-block;
+}
+.input-box {
+  float: left;
+  margin-left:1px;
+}
+.input-label {
+  font-size: 0.9em;
+  font-weight: bold;
+  margin-left: 5px;
+  display:inline-block;
+}
+
