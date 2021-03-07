@@ -153,7 +153,7 @@ module.exports = (env) ->
     
     setColor: (hex) =>
       @_validateHEX(hex)
-      @base.debug(" Received HEX color value: #{hex}")
+      @base.debug("Received HEX color value: #{hex}")
             
       hex = hex.toUpperCase()
       hsb = @_convertHEXToHSB(hex)
