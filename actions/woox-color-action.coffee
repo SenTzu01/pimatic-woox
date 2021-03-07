@@ -7,7 +7,8 @@ module.exports = (env) ->
   colors = require 'colornames'
   convert = require 'color-convert'
   colorNames = colors.all().filter((v) -> v.css is true).map((v) -> v.name)
-
+  regexHEX = /(#?[a-fA-F\d]{6})(.*)/
+  
   class WooxColorActionHandler extends env.actions.ActionHandler
     constructor: (@provider, @device, @color, @variable) ->
       @_variableManager = @provider.framework.variableManager
@@ -21,7 +22,8 @@ module.exports = (env) ->
       if @variable?
         @_variableManager.evaluateStringExpression([@variable])
         .then (value) =>
-          if value.match(/(#[a-fA-F\d]{6})(.*)/)? or colors(value)?
+          value = value.match(regexHEX) or colors(value)
+          if value?
             @setColor value, simulate
           else
             Promise.reject new Error __("variable value #{value} is not a valid color")
@@ -32,9 +34,10 @@ module.exports = (env) ->
       if simulate
         return Promise.resolve(__("would set color #{color}"))
       else
-        @device.setHex color
+        @device.setColor @_removeHash(color)
         return Promise.resolve(__("set color #{color}"))
-
+    
+    _removeHash: (value) -> value.substring(value.indexOf('#')+1).trim() or value
 
   class WooxColorActionProvider extends env.actions.ActionProvider
     constructor: (@framework) ->
@@ -47,7 +50,8 @@ module.exports = (env) ->
 
       # Try to match the input string with: set ->
       m = M(input, context).match(['set color of '])
-
+      
+      
       device = null
       color = null
       match = null
@@ -62,27 +66,16 @@ module.exports = (env) ->
 
         device = d
 
-        re = /(rgb\(\s*(?:(?:\d{1,2}|1\d\d|2(?:[0-4]\d|5[0-5]))\s*,)\s*(?:(?:\d{1,2}|1\d\d|2(?:[0-4]\d|5[0-5]))\s*,)\s*(?:(?:\d{1,2}|1\d\d|2(?:[0-4]\d|5[0-5]))\s*)\))(.*)/
         m.match [' to '], (m) ->
           m.or [
-            # rgb hex like #00FF00
-            (m) -> m.match [/(#[a-fA-F\d]{6})(.*)/], (m, s) ->
-              color = s.trim()
+            # rgb hex like 00FF00 with or without '#' prefix
+            (m) -> m.match regexHEX, (m, s) ->
+              color = s
               match = m.getFullMatch()
-
-            # match rgb() color
-            (m) -> m.match [re], (m, s) ->
-              match = m.getFullMatch()
-              result = /rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)(.*)/.exec s
-              if result?
-                r = Number result[1]
-                g = Number result[2]
-                b = Number result[3]
-                color = "#" + ("00000" + Number(((r&0x0ff)<<16)|((g&0x0ff)<<8)|(b&0x0ff)).toString(16)).substr(-6)
-
+            
             # color name like red
             (m) -> m.match colorNames, (m, s) ->
-              color = colors(s)
+              color = colors(s).match(regexHEX)[1]
               match = m.getFullMatch()
 
             # a variable holding the color value

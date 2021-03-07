@@ -152,10 +152,8 @@ module.exports = (env) ->
       return Promise.resolve(true)
     
     setColor: (hex) =>
-      @_validateHEX(hex.toUpperCase())
+      @_validateHEX(hex)
       @base.debug(" Received HEX color value: #{hex}")
-      #match = hex.match(/([a-fA-F\d]{6})/)[1]
-      #if !match? then return Promise.reject()
             
       hex = hex.toUpperCase()
       hsb = @_convertHEXToHSB(hex)

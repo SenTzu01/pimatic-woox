@@ -43,7 +43,7 @@ module.exports = (env) ->
 
       for provider in actionProviders
         className = provider.replace(/(^[a-z])|(\-[a-z])/g, ($1) -> $1.toUpperCase().replace('-','')) + 'Provider'
-        classType = require('./predicates_and_actions/' + provider)(env)
+        classType = require('./actions/' + provider)(env)
         @base.debug "Registering action provider #{className}"
         @framework.ruleManager.addActionProvider(new classType @framework)
 
