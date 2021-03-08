@@ -24,10 +24,10 @@ module.exports = (env) ->
       
       @addAttribute 'color',
         description: "Hex Color",
-        type: t.string
+        type: 'string'
       @addAttribute 'ct',
         description: "WW Color",
-        type: t.number
+        type: 'number'
 
       @actions.setColor =
         description: 'set a light color'
@@ -266,7 +266,7 @@ module.exports = (env) ->
       h = hsb[1]
       s = hsb[2]
       b = hsb[3]
-      return [ parseInt(h, 16), Math.round(parseInt(s, 16) / 2.55), Math.round(parseInt(b, 16) / 2.55) ]
+      return [ parseInt(h, 16).toString(), Math.round(parseInt(s, 16) / 2.55).toString(), Math.round(parseInt(b, 16) / 2.55).toString() ]
     
     _convertDimlevelToTuyaDimlevel: (value) =>
       @_validateNumber(value, 0, 100)
