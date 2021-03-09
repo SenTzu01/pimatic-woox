@@ -7,6 +7,17 @@
   },
   "license": "GPL-3.0",
   "main": "woox",
+  "files": [
+	"woox.coffee",
+	"woox-config-schema.coffee",
+	"README.md",
+	"LICENSE",
+	"device-config-schema",
+	"package.json",
+	"actions",
+	"app",
+	"devices"
+  ],
   "configSchema": "woox-config-schema.coffee",
   "keywords": [
     "pimatic",
