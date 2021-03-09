@@ -102,7 +102,6 @@ module.exports = (env) ->
 
     changeBrightnessTo: (brightness) ->
       @base.debug("Homekit is setting brightness: #{brightness}")
-      #@_setDimlevel(brightness)
       @setColor(@_convertHSBToHEX([@_hue, @_saturation, brightness]))
     
     setCT: (color) =>
@@ -259,31 +258,32 @@ module.exports = (env) ->
       @_validateNumber(value, 0, 255)
       return Math.round(value/2.55)
     
-    _connectDevice: (attempts = 0) =>
+    _connectDevice: (attempts = 1) =>
       if !@_connected
+        @base.debug("Connection attempt #{attempts}")
         @_tuyaDevice.find()
           .then( () =>
             @config.ip = @_tuyaDevice.device.ip # Set each time as the devices only support DHCP
             @config.port = @_tuyaDevice.device.port # Port may change with firmware updates
-            
             @_tuyaDevice.connect({issueGetOnConnect: false})
           
           ).then( () =>
             clearTimeout(@_reconnect)
-            attempts = 0
             @_reconnect = null
-            
+            attempts = 0
             return Promise.resolve()
           
           ).catch( (error) =>
-            attempts = ++attempts
             if attempts <= 3
-              @_reconnect = setTimeout(@_connectDevice, 5000)
+              @base.debug("Connection failed, retrying...")
+              attempts = ++attempts
+              @_reconnect = setTimeout(@_connectDevice, 5000, attempts)
+            
             else
               @_reconnect = null
               @base.error("Error connecting to the device after three attempts. Is the device powered on?")
           )
-      return Promise.resolve() 
+      return Promise.resolve()
     
     _updateDevice: (settings) =>
       @_connectDevice()

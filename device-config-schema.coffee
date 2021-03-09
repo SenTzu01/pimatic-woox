@@ -22,18 +22,10 @@ module.exports = {
       minTemp:
         description: "Minimum Warm White Temperature in Kelvin"
         type: "integer"
-        default: 2500
+        default: 2400
       maxTemp:
         description: "Maximum Warm White Temperature in Kelvin"
         type: "integer"
-        default: 8500
-      minBrightness:
-        description: "Minimum Brightness - usually this value works"
-        type: "integer"
-        default: 25
-      maxBrightness:
-        description: "Minimum Brightness - usually this value works"
-        type: "integer"
-        default: 255
+        default: 9600
   }
 }
