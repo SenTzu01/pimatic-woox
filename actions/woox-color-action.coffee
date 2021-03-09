@@ -24,7 +24,6 @@ module.exports = (env) ->
         .then (value) =>
           value = value.match(regexHEX)[1] or colors(value)
           if value?
-            console.log("value: '#{value}'")
             @setColor value, simulate
           else
             Promise.reject new Error __("variable value #{value} is not a valid color")

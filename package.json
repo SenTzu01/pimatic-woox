@@ -14,7 +14,7 @@
     "woox",
     "tuya"
   ],
-  "version": "0.0.2",
+  "version": "0.0.3",
   "homepage": "https://github.com/sentzu01/pimatic-woox",
   "repository": {
     "type": "git",
@@ -27,8 +27,11 @@
     "pimatic-plugin-commons": "^0.9.10",
     "tuyapi": ">=6.1.5"
   },
+  "peerDependencies": {
+    "pimatic": "0.9.*"
+  },
   "engines": {
-    "node": ">0.8.x",
+    "node": ">=4",
     "npm": ">1.1.x"
   },
   "bugs": {
