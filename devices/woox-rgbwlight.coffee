@@ -42,14 +42,14 @@ module.exports = (env) ->
             
       @_state = lastState?.state?.value or off
       @_mode = lastState?.mode?.value or "white"
-      @_ct = lastState?.ct?.value or 100
+      @_ct = lastState?.ct?.value or 0
       @_color = lastState?.color?.value or 'FFFFFF'
       @_hue = lastState?.hue?.value or 0
       @_saturation = lastState?.saturation?.value or 0
       @_brightness = lastState?.brightness?.value or 100
-      @_dimlevel = lastState?.dimlevel?.value or 0
-            
-
+      @_dimlevel = lastState?.dimlevel?.value or 100
+      @_connected = false
+      
       super()
       
       @_tuyaDevice = new TuyAPI({
@@ -62,19 +62,7 @@ module.exports = (env) ->
       @_tuyaDevice.on('data', @_onData)
       @_tuyaDevice.on('error', @_onError)
       
-      process.nextTick( () =>
-        @_tuyaDevice.find()
-          .then( () =>
-            @config.ip = @_tuyaDevice.device.ip # Set each time as the devices only support DHCP
-            @config.port = @_tuyaDevice.device.port # Port may change with firmware updates
-            @_tuyaDevice.connect({issueGetOnConnect: false})
-          
-          ).catch( (error) =>
-            @base.error(error)
-          
-          )
-          
-      )
+      process.nextTick( () => @_connectDevice())
       
       @base.debug "deviceID: #{@config.deviceID}"
       @base.debug "deviceKey: #{@config.deviceKey}"
@@ -91,21 +79,15 @@ module.exports = (env) ->
     turnOn: -> @changeDimlevelTo(100)
     turnOff: -> @changeDimlevelTo(0)
 
-    changeDimlevelTo: (dimlevel) ->
-      @base.debug("Setting Dimlevel: #{dimlevel}")
-      
+    changeDimlevelTo: (dimlevel) =>
       state = dimlevel > 0
       settings = {1: state}
       if state
         settings[2] = 'white'
-        settings[3] = Math.floor((@config.maxBrightness-@config.minBrightness)*dimlevel/100)+@config.minBrightness
+        settings[3] = @_convertDimlevelToTuyaDimlevel(dimlevel)
       
       @_updateDevice(settings)
-        .then( (result) =>
-          @_setDimlevel(dimlevel)
-          @_setColor(@_convertHSBToHEX([0, 0, dimlevel])) #Keep color-picker in-sync
-      
-        ).catch( (error) =>
+        .catch( (error) =>
           @base.error "#{error}"
         )
       return Promise.resolve()
@@ -120,15 +102,15 @@ module.exports = (env) ->
 
     changeBrightnessTo: (brightness) ->
       @base.debug("Homekit is setting brightness: #{brightness}")
-      @_setDimlevel(brightness)
+      #@_setDimlevel(brightness)
       @setColor(@_convertHSBToHEX([@_hue, @_saturation, brightness]))
     
     setCT: (color) =>
-      kelvin = @config.maxTemp-(Math.floor((@config.maxTemp-@config.minTemp)*color/100))
-      @setColor(@_convertKelvinToHEX(kelvin))
+      @setColor(@_convertCTToHEX(color))
     
     setColor: (hex) =>
       @_validateHEX(hex)
+      hex = hex.toUpperCase()
       @base.debug("Received HEX color value: #{hex}")
       
       state = @_convertHEXToHSB(hex)[2] > 0
@@ -145,18 +127,18 @@ module.exports = (env) ->
       return Promise.resolve()
     
     _onConnected: () =>
-      @base.info "Connected to #{@name}"
+      @base.debug("Connected to #{@name}")
+      @_connected = true
     
     _onDisconnected: () =>
-      @base.info "Disconnected from #{@name}"
+      @base.debug("Disconnected from #{@name}")
+      @_connected = false
     
-    _onData: (data) =>
-      @base.debug "External change (Not from Pimatic): "
-      # First get all settings because Tuya only announces changed settings.
+    _onData: (data, commandByte) =>
+      @base.debug "Updated settings received from Woox device: #{commandByte}"
       @_updateValues(data)
-     
-    _onError: (error) =>
-      @base.error "#{error}"
+    
+    _onError: (error) => return
     
     _setMode: (mode) =>
       if @_mode is mode then return
@@ -215,8 +197,9 @@ module.exports = (env) ->
     _validateHEX: (value) =>
       assert( typeof(value.match(/([a-fA-F\d]{6})/)[1] is 'string' ) )
     
-    _convertKelvinToHEX: (kelvin) =>
-      rgb = tempConvert.colorTemperature2rgb(kelvin)
+    _convertCTToHEX: (ct) =>
+      ct = @config.maxTemp-(Math.floor((@config.maxTemp-@config.minTemp)*ct/100))
+      rgb = tempConvert.colorTemperature2rgb(ct)
       return colorConvert.rgb.hex([rgb.red, rgb.green, rgb.blue])
     
     _convertHSBToHEX: (hsb) =>
@@ -275,37 +258,68 @@ module.exports = (env) ->
     _convertTuyaDimlevelToDimlevel: (value) =>
       @_validateNumber(value, 0, 255)
       return Math.round(value/2.55)
-      
-    _updateDevice: (settings) =>
-      @_tuyaDevice.set({
-        multiple: true
-        data: settings
-      }).then( (result) =>
-        @_tuyaDevice.get({schema:true})
     
-      ).then( (data) =>
-        @base.debug("Light updated:")
-        @_updateValues(data)
-      )
+    _connectDevice: (attempts = 0) =>
+      if !@_connected
+        @_tuyaDevice.find()
+          .then( () =>
+            @config.ip = @_tuyaDevice.device.ip # Set each time as the devices only support DHCP
+            @config.port = @_tuyaDevice.device.port # Port may change with firmware updates
+            
+            @_tuyaDevice.connect({issueGetOnConnect: false})
+          
+          ).then( () =>
+            clearTimeout(@_reconnect)
+            attempts = 0
+            @_reconnect = null
+            
+            return Promise.resolve()
+          
+          ).catch( (error) =>
+            attempts = ++attempts
+            if attempts <= 3
+              @_reconnect = setTimeout(@_connectDevice, 5000)
+            else
+              @_reconnect = null
+              @base.error("Error connecting to the device after three attempts. Is the device powered on?")
+          )
+      return Promise.resolve() 
+    
+    _updateDevice: (settings) =>
+      @_connectDevice()
+        .then( () =>
+          @_tuyaDevice.set({
+            multiple: true
+            data: settings
+          })
+        
+        ).catch( (error) =>
+          @base.error("Error updating device: #{error}")
+        )
       
     _updateValues: (data) ->
       @base.debug(util.inspect(data))
-      
       if data.dps['1']? then @_setState(data.dps['1'])
       if data.dps['2']? then @_setMode(data.dps['2'])
-      if data.dps['3']? and data.dps['2'] is 'white'
+      if data.dps['3']? and @_mode is 'white'
+        @_setColor('FFFFFF')
+        @_setHue(0)
+        @_setSaturation(0)
+        @_setBrightness(@_convertTuyaDimlevelToDimlevel(data.dps['3']))
         @_setDimlevel(@_convertTuyaDimlevelToDimlevel(data.dps['3']))
-      if data.dps['5']?
+      if data.dps['5']? and @_mode is 'colour'
         hsb = @_convertTuyaHexToHSB(data.dps['5'])
         hex = @_convertHSBToHEX(hsb)
         @_setColor(hex.toUpperCase())
         @_setHue(hsb[0])
         @_setSaturation(hsb[1])
         @_setBrightness(hsb[2])
-        if data.dps['2'] is 'colour' then @_setDimlevel(hsb[2])
-        #Promise.resolve(data)
+        @_setDimlevel(hsb[2])
+      
     
     destroy: ->
+      clearTimeout(@_reconnect)
+      @_reconnect = null
       @_tuyaDevice.disconnect()
       @_tuyaDevice.removeListener('connected', @_onConnected)
       @_tuyaDevice.removeListener('disconnected', @_onDisconnected)
