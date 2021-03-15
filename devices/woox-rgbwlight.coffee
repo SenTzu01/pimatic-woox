@@ -88,6 +88,7 @@ module.exports = (env) ->
     turnOff: -> @changeDimlevelTo(0)
 
     changeDimlevelTo: (dimlevel) =>
+      @_validateNumber(dimlevel)
       state = dimlevel > 0
       settings = {1: state}
       if state
@@ -97,23 +98,14 @@ module.exports = (env) ->
       @_updateDevice(settings)
         .catch( (error) =>
           @base.error "#{error}"
+        
         )
       return Promise.resolve()
     
-    changeHueTo: (hue) ->
-      @base.debug("Homekit is setting hue: #{hue}")
-      @setColor(@_convertHSBToHEX([hue, @_saturation, @_brightness]))
-
-    changeSaturationTo: (saturation) ->
-      @base.debug("Homekit is setting saturation: #{saturation}")
-      @setColor(@_convertHSBToHEX([@_hue, saturation, @_brightness]))
-
-    changeBrightnessTo: (brightness) ->
-      @base.debug("Homekit is setting brightness: #{brightness}")
-      @setColor(@_convertHSBToHEX([@_hue, @_saturation, brightness]))
-    
-    setCT: (color) =>
-      @setColor(@_convertCTToHEX(color))
+    changeHueTo:        (hue)        -> @setColor(@_convertHSBToHEX([hue, @_saturation, @_brightness]))
+    changeSaturationTo: (saturation) -> @setColor(@_convertHSBToHEX([@_hue, saturation, @_brightness]))
+    changeBrightnessTo: (brightness) -> @setColor(@_convertHSBToHEX([@_hue, @_saturation, brightness]))
+    setCT:              (color)      -> @setColor(@_convertCTToHEX(color))
     
     setEffect: (effect, color = @_color) =>
       @base.debug("Received effect value: #{effect} with color #{color}")
@@ -147,19 +139,32 @@ module.exports = (env) ->
         )
       return Promise.resolve()
     
-    _onConnected: () =>
-      @base.debug("Connected to #{@name}")
-      @_connected = true
-    
-    _onDisconnected: () =>
-      @base.debug("Disconnected from #{@name}")
-      @_connected = false
+    _onConnected: () => @_connected = true
+    _onDisconnected: () => @_connected = false
     
     _onData: (data, commandByte) =>
       @base.debug "Updated settings received from Woox device: #{commandByte}"
-      @_updateValues(data)
-    
-    _onError: (error) => return
+      @base.debug(util.inspect(data))
+      if data.dps['1']? then @_setState(data.dps['1'])
+      if data.dps['2']? then @_setMode(data.dps['2'])
+      
+      if data.dps['3']? and @_mode is 'white'
+        dimlevel = @_convertTuyaDimlevelToDimlevel(data.dps['3'])
+        @_setColor('FFFFFF')
+        @_setHue(0)
+        @_setSaturation(0)
+        @_setBrightness(dimlevel)
+        @_setDimlevel(dimlevel)
+        
+      if data.dps['5']? and @_mode is 'colour'
+        hsb = @_convertTuyaHexToHSB(data.dps['5'])
+        @_setColor(@_convertHSBToHEX(hsb).toUpperCase())
+        @_setHue(hsb[0])
+        @_setSaturation(hsb[1])
+        @_setBrightness(hsb[2])
+        @_setDimlevel(hsb[2])
+
+    _onError: (error) -> return true # Workaround on tuyapi module, if event is not handled exception is thrown.
     
     _setMode: (mode) =>
       if @_mode is mode then return
@@ -168,7 +173,9 @@ module.exports = (env) ->
       @emit "mode", mode
     
     _setColor: (value) =>
+      @_validateHEX(value)
       if @_color is value then return
+      
       @base.debug("Setting @_color to: #{value}")
       @_color = value.toString()
       @emit "color", value.toString()
@@ -180,11 +187,6 @@ module.exports = (env) ->
       @base.debug("Setting @_ct to: #{color}")
       @_ct = color
       @emit "ct", color
-    
-    _setHSB: (hsb) =>
-      @_setHue(hsb[0])
-      @_setSaturation(hsb[1])
-      @_setBrightness(hsb[2])
     
     _setHue: (hue) =>
       @_validateNumber(hue, 0, 360)
@@ -223,18 +225,10 @@ module.exports = (env) ->
       rgb = tempConvert.colorTemperature2rgb(ct)
       return colorConvert.rgb.hex([rgb.red, rgb.green, rgb.blue])
     
-    _convertHSBToHEX: (hsb) =>
-      return colorConvert.hsv.hex(hsb)
-    
-    _convertHEXToHSB: (hex) =>
-      return colorConvert.hex.hsv(hex)
-    
-    _convertHEXToTuyaHex: (value) =>
-      return @_convertHSBToTuyaHex(@_convertHEXToHSB(value))
-    
-    _convertTuyaHexToHEX: (value) =>
-      @_validateHEX(value)
-      return colorConvert.hsv.hex(@_convertTuyaHexToHSB(value))
+    _convertHSBToHEX: (hsb) => colorConvert.hsv.hex(hsb)
+    _convertHEXToHSB: (hex) => colorConvert.hex.hsv(hex)
+    _convertHEXToTuyaHex: (value) => @_convertHSBToTuyaHex(@_convertHEXToHSB(value))
+    _convertTuyaHexToHEX: (value) => colorConvert.hsv.hex(@_convertTuyaHexToHSB(value))
     
     _convertHSBToTuyaHex: (value) =>
       h = value[0]
@@ -272,13 +266,8 @@ module.exports = (env) ->
       b = hsb[3]
       return [ parseInt(h, 16).toString(), Math.round(parseInt(s, 16) / 2.55).toString(), Math.round(parseInt(b, 16) / 2.55).toString() ]
     
-    _convertDimlevelToTuyaDimlevel: (value) =>
-      @_validateNumber(value, 0, 100)
-      return Math.round(2.55*value)
-    
-    _convertTuyaDimlevelToDimlevel: (value) =>
-      @_validateNumber(value, 0, 255)
-      return Math.round(value/2.55)
+    _convertDimlevelToTuyaDimlevel: (value) => Math.round(2.55 * value)
+    _convertTuyaDimlevelToDimlevel: (value) => Math.round(value / 2.55)
     
     _cancelReconnect: () =>
       clearTimeout(@_reconnect)
@@ -309,6 +298,8 @@ module.exports = (env) ->
       return Promise.resolve()
     
     _updateDevice: (settings) =>
+      @base.debug("Sending update to device:")
+      @base.debug(util.inspect(settings))
       @_connectDevice()
         .then( () =>
           @_tuyaDevice.set({
@@ -319,26 +310,6 @@ module.exports = (env) ->
         ).catch( (error) =>
           @base.error("Error updating device: #{error}")
         )
-      
-    _updateValues: (data) ->
-      @base.debug(util.inspect(data))
-      if data.dps['1']? then @_setState(data.dps['1'])
-      if data.dps['2']? then @_setMode(data.dps['2'])
-      if data.dps['3']? and @_mode is 'white'
-        @_setColor('FFFFFF')
-        @_setHue(0)
-        @_setSaturation(0)
-        @_setBrightness(@_convertTuyaDimlevelToDimlevel(data.dps['3']))
-        @_setDimlevel(@_convertTuyaDimlevelToDimlevel(data.dps['3']))
-      if data.dps['5']? and @_mode is 'colour'
-        hsb = @_convertTuyaHexToHSB(data.dps['5'])
-        hex = @_convertHSBToHEX(hsb)
-        @_setColor(hex.toUpperCase())
-        @_setHue(hsb[0])
-        @_setSaturation(hsb[1])
-        @_setBrightness(hsb[2])
-        @_setDimlevel(hsb[2])
-      
     
     destroy: ->
       @_cancelReconnect()
