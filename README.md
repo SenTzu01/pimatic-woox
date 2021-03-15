@@ -7,6 +7,7 @@ internet connection.
 ## Status of Implementation
 
 Since the first release the following features have been implemented:
+* Added rule action syntax for "Fade" and Blink" effects
 * Support for the Woox R5085 RGBW lightbulb
 * Lightbulbs will automatically be found on the local (non-routed) LAN through UDP broadcast, after adding deviceID and -key
 * GUI element is similar to the ones provided by Pimatic-Tradfri and Pimatic-Dummies
@@ -15,7 +16,6 @@ Since the first release the following features have been implemented:
 * Integrates with Pimatic-HAP with full color support
 
 Roadmap:
-* Implement rule actions to activate scenes as are provided by the Woox phone app
 * Building out the class into parent classes to provide an easier way to support other Woox devices
 
 ## Contributions
@@ -38,9 +38,9 @@ Contributions to the project are  welcome. You can simply fork the project and c
 
 ```json
 {
-	"plugin": "woox",
-    "debug": false,
-    "active": true 
+  "plugin": "woox",
+  "debug": false,
+  "active": true 
 }
 ```
 The plugin has the following configuration properties:
@@ -58,11 +58,11 @@ Default settings should work fine, only the deviceID and deviceKey MUST be provi
 
 ```json
 {
-    "class": "WooxRGBWZone",
-    "id": "woox-light-1",
-    "name": "Woox RGBW Zone 1",
-	"deviceID": "<device id>,
-	"deviceKey": "<device key"
+  "class": "WooxRGBWZone",
+  "id": "woox-light-1",
+  "name": "Woox RGBW Zone 1",
+  "deviceID": "<device id>,
+  "deviceKey": "<device key"
 	
 }
 ```
@@ -88,6 +88,9 @@ The following actions are supported:
 * set color {device} to {value}, where {value} is one of the following
     * a six digit hexadecimal RGB color code optionally preceded by `#`. e.g. `#FF0000` or `00FF00`
     * a CSS color name, e.g., `red`
+	* a variable which resolves to either of the above
+* set effect of {device} to {value}
+    * a known effect name, e.g., `Fade` or `Blink`
 	* a variable which resolves to either of the above
 
 
