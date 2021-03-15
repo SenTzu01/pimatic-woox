@@ -5,7 +5,6 @@ module.exports = (env) ->
   _ = env.require 'lodash'
   M = env.matcher
   colors = require 'colornames'
-  convert = require 'color-convert'
   colorNames = colors.all().filter((v) -> v.css is true).map((v) -> v.name)
   regexHEX = /(#?[a-fA-F\d]{6})(.*)/
   

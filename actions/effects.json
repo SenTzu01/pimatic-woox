@@ -1,0 +1,12 @@
+{
+  "Fade": {
+    "scene": "scene_1",
+    "dps": 7,
+    "value": "FFFF5001"
+  },
+  "Blink": {
+    "scene": "scene_3",
+    "dps": 9,
+    "value": "FFFF5001"
+  }
+}

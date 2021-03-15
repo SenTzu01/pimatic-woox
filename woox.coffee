@@ -6,7 +6,7 @@ deviceConfigTemplates =
 
 actionProviders = [
   'woox-color-action'
-  #'woox-white-action'
+  'woox-scene-action'
 ]
 
 # ##The plugin code

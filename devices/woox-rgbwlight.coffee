@@ -39,6 +39,13 @@ module.exports = (env) ->
         params:
           colorCode:
             type: t.number
+      @actions.setEffect = 
+        description: 'set light effect'
+        params:
+          effect:
+            type: t.string
+          color:
+            type: t.string
             
       @_state = lastState?.state?.value or off
       @_mode = lastState?.mode?.value or "white"
@@ -68,13 +75,14 @@ module.exports = (env) ->
       @base.debug "deviceKey: #{@config.deviceKey}"
     
     getTemplateName: -> "wooxdimmer-rgb"
+    
     getCt: -> Promise.resolve(@_ct)
     getColor: -> Promise.resolve(@_color)
     getHsb: -> Promise.resolve([@_hue, @_saturation, @_brightness])
     getMode: -> Promise.resolve(@_mode)
-    getHue: () -> Promise.resolve @_hue
-    getSaturation: () -> Promise.resolve @_saturation
-    getBrightness: () -> Promise.resolve @_brightness
+    getHue: () -> Promise.resolve(@_hue)
+    getSaturation: () -> Promise.resolve(@_saturation)
+    getBrightness: () -> Promise.resolve(@_brightness)
 
     turnOn: -> @changeDimlevelTo(100)
     turnOff: -> @changeDimlevelTo(0)
@@ -106,6 +114,20 @@ module.exports = (env) ->
     
     setCT: (color) =>
       @setColor(@_convertCTToHEX(color))
+    
+    setEffect: (effect, color = @_color) =>
+      @base.debug("Received effect value: #{effect} with color #{color}")
+      settings = {
+        1: true
+        2: effect.scene
+      }
+      settings[effect.dps] = effect.value + color
+      
+      @_updateDevice(settings)
+        .catch( (error) =>
+          @base.error "#{error}"
+        )
+      return Promise.resolve()
     
     setColor: (hex) =>
       @_validateHEX(hex)
@@ -258,31 +280,32 @@ module.exports = (env) ->
       @_validateNumber(value, 0, 255)
       return Math.round(value/2.55)
     
-    _connectDevice: (attempts = 1) =>
+    _cancelReconnect: () =>
+      clearTimeout(@_reconnect)
+      @_reconnect = undefined
+    
+    _connectDevice: (count = 1) =>
       if !@_connected
-        @base.debug("Connection attempt #{attempts}")
-        @_tuyaDevice.find()
-          .then( () =>
+        @base.debug("Connection attempt #{count}") 
+        @_tuyaDevice.find().then( () =>
             @config.ip = @_tuyaDevice.device.ip # Set each time as the devices only support DHCP
             @config.port = @_tuyaDevice.device.port # Port may change with firmware updates
-            @_tuyaDevice.connect({issueGetOnConnect: false})
+            @_tuyaDevice.connect()
           
           ).then( () =>
-            clearTimeout(@_reconnect)
-            @_reconnect = null
-            attempts = 0
-            return Promise.resolve()
+            @_cancelReconnect()
           
           ).catch( (error) =>
-            if attempts <= 3
-              @base.debug("Connection failed, retrying...")
-              attempts = ++attempts
-              @_reconnect = setTimeout(@_connectDevice, 5000, attempts)
+            @base.debug("Connection attempt #{count} failed...")
+            if count < 3
+              @_reconnect = setTimeout(@_connectDevice, 5000, ++count)
             
             else
-              @_reconnect = null
-              @base.error("Error connecting to the device after three attempts. Is the device powered on?")
+              @_cancelReconnect()
+              @base.error("Error connecting to the device. Is the device powered on?")
+          
           )
+      
       return Promise.resolve()
     
     _updateDevice: (settings) =>
@@ -318,12 +341,12 @@ module.exports = (env) ->
       
     
     destroy: ->
-      clearTimeout(@_reconnect)
-      @_reconnect = null
+      @_cancelReconnect()
       @_tuyaDevice.disconnect()
       @_tuyaDevice.removeListener('connected', @_onConnected)
       @_tuyaDevice.removeListener('disconnected', @_onDisconnected)
       @_tuyaDevice.removeListener('data', @_onData)
       @_tuyaDevice.removeListener('error', @_onError)
+      @_tuyaDevice = undefined
 
       super()
