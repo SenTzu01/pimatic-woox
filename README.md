@@ -61,7 +61,7 @@ Default settings should work fine, only the deviceID and deviceKey MUST be provi
   "class": "WooxRGBWZone",
   "id": "woox-light-1",
   "name": "Woox RGBW Zone 1",
-  "deviceID": "<device id>,
+  "deviceID": "<device id>",
   "deviceKey": "<device key>"
 	
 }
