@@ -39,7 +39,7 @@
     "tuyapi": ">=6.1.5"
   },
   "peerDependencies": {
-    "pimatic": "0.9.*"
+    "pimatic": ">=0.9.*"
   },
   "engines": {
     "node": ">=4",
