@@ -1,6 +1,6 @@
 $(document).on "templateinit", (event) ->
 
-  class WooxDimmerItem extends pimatic.SwitchItem
+  class LightDimmerItem extends pimatic.SwitchItem
 
     constructor: (templData, @device) ->
       super(templData, @device)
@@ -52,7 +52,11 @@ $(document).on "templateinit", (event) ->
             @presenceEle.removeClass('value-present')
         return
 
-  class WooxDimmerRGBItem extends WooxDimmerItem
+##############################################################
+# based on Pimatic-Dummies (Bertreb) / RaspBeeRGBCTItem
+##############################################################
+  class WooxDimmerRGBItem extends LightDimmerItem
+
     constructor: (templData, @device) ->
       super(templData, @device)
       @_colorChanged = false
@@ -121,5 +125,5 @@ $(document).on "templateinit", (event) ->
       return @device.rest.setColor(
           {colorCode: color}, global: no
         ).then(ajaxShowToast, ajaxAlertFail)
-        
+     
   pimatic.templateClasses['wooxdimmer-rgb'] = WooxDimmerRGBItem

@@ -30,7 +30,7 @@
 }
 
 
-li.sortable.wooxdimmer-rgb-device label {
+li.sortable.light-rgbct-device label {
   float: left;
 }
 
@@ -38,42 +38,42 @@ ul.items .ui-slider-input{
   display: none;
 }
 
-ul.items .wooxdimmer-rgb-device div.item-inner .ui-slider-track {
+ul.items .light-rgbct-device div.item-inner .ui-slider-track {
   margin-left: 22px;
   margin-right: 8px;
 }
 
-ul.items .wooxdimmer-rgb-device .ui-slider {
+ul.items .light-rgbct-device .ui-slider {
   float: right;
   margin: 1px 4px -1px 5px;
   width: 12em;
 }
 
-ul.items .wooxdimmer-rgb-device .ui-dimlevel {
+ul.items .light-rgbct-device .ui-dimlevel {
   float: right;
   min-height: 30px;
 }
 
-ul.items .wooxdimmer-rgb-device .ui-dimlevel .ui-slider-track {
+ul.items .light-rgbct-device .ui-dimlevel .ui-slider-track {
   background-image: linear-gradient(to right, rgba(255, 255, 255, 0), rgba(255, 255, 255, 1));
 }
 
-ul.items .wooxdimmer-rgb-device .ui-dimlevel .ui-slider-track .ui-slider-bg {
+ul.items .light-rgbct-device .ui-dimlevel .ui-slider-track .ui-slider-bg {
   background: none;
 }
 
-ul.items .wooxdimmer-rgb-device .ui-color .ui-slider-track {
+ul.items .light-rgbct-device .ui-color .ui-slider-track {
   background: linear-gradient(to right, hsl(195, 100%, 85%), White, hsl(51, 100%, 85%));
 }
-ul.items .wooxdimmer-rgb-device .ui-color .ui-slider-bg {
+ul.items .light-rgbct-device .ui-color .ui-slider-bg {
   background: none;
 }
 
-ul.items .wooxdimmer-rgb-device .ui-dimlevel .ui-slider-track .ui-slider-bg {
+ul.items .light-rgbct-device .ui-dimlevel .ui-slider-track .ui-slider-bg {
   background: none;
 }
 
-ul.items .wooxdimmer-rgb-device div.ui-spacer {
+ul.items .light-rgbct-device div.ui-spacer {
   width: 123px;
   height: 30px;
   margin-left: 10px;
@@ -81,54 +81,54 @@ ul.items .wooxdimmer-rgb-device div.ui-spacer {
 }
 
 
-ul.items .wooxdimmer-rgb-device .ui-color {
+ul.items .light-rgbct-device .ui-color {
   float: right;
   clear: right;
   min-height: 30px;
   margin-top: 8px;
 }
 
-ul.items .wooxdimmer-rgb-device .ui-temp {
+ul.items .light-rgbct-device .ui-temp {
   float: right;
   clear: right;
   min-height: 30px;
   margin-top: 8px;
 }
 
-.button-control.ui-controlgroup.ui-controlgroup-horizontal.ui-corner-all.ui-mini.no-carousel-slide.wooxdimmer-rgb {
+.button-control.ui-controlgroup.ui-controlgroup-horizontal.ui-corner-all.ui-mini.no-carousel-slide.light-rgbct {
   margin-right: 30px
 }
 
-ul.items .wooxdimmer-rgb-device .ui-temp .wbutton {
+ul.items .light-rgbct-device .ui-temp .wbutton {
   background-color: #efd275;
 }
 
-ul.items .wooxdimmer-rgb-device .ui-temp .nbutton {
+ul.items .light-rgbct-device .ui-temp .nbutton {
   background-color: #f1e0b5;
 }
 
-ul.items .wooxdimmer-rgb-device .ui-temp .cbutton {
+ul.items .light-rgbct-device .ui-temp .cbutton {
   background-color: #f5faf6;
 }
 
-ul.items .wooxdimmer-rgb-device .presence {
+ul.items .light-rgbct-device .presence {
   float: right;
   margin-top: 6px;
 }
 
-ul.items .wooxdimmer-rgb-device div.ui-smallspacer {
+ul.items .light-rgbct-device div.ui-smallspacer {
   width: 10px;
   height: 5px;
   float: right;
 }
 
-ul.items .wooxdimmer-rgb-device div.ui-midspacer {
+ul.items .light-rgbct-device div.ui-midspacer {
   width: 30px;
   height: 5px;
   float: right;
 }
 
-ul.items .wooxdimmer-rgb-device .ui-colorpicker div.sp-replacer {
+ul.items .light-rgbct-device .ui-colorpicker div.sp-replacer {
   height: 1.75em;
   margin-left: auto;
   margin-right: auto;
@@ -138,22 +138,22 @@ ul.items .wooxdimmer-rgb-device .ui-colorpicker div.sp-replacer {
   min-height: 30px;
 }
 
-ul.items .wooxdimmer-rgb-device .ui-colorpicker div.sp-preview {
+ul.items .light-rgbct-device .ui-colorpicker div.sp-preview {
   width: 123px;
   height: 100%;
   border-radius: 3em;
   border-width: 0px;
 }
 
-ul.items .wooxdimmer-rgb-device .ui-colorpicker div.ui-state-disabled {
+ul.items .light-rgbct-device .ui-colorpicker div.ui-state-disabled {
   box-shadow: 0px 0px 0px 2px silver;
 }
 
-ul.items .wooxdimmer-rgb-device .ui-colorpicker div.sp-preview-inner {
+ul.items .light-rgbct-device .ui-colorpicker div.sp-preview-inner {
   border-radius: inherit;
 }
 
-ul.items .wooxdimmer-rgb-device .ui-colorpicker div.sp-dd {
+ul.items .light-rgbct-device .ui-colorpicker div.sp-dd {
   display: none;
 }
 
@@ -167,11 +167,11 @@ div.sp-container {
   background-color: white;
 }
 
-a .ui-btn .wooxdimmer-rgb-device {
+a .ui-btn .light-rgbct-device {
   margin-left: 0px;
 }
 
-ul.items .wooxdimmer-rgb-device div.ui-colorpicker-spacer {
+ul.items .light-rgbct-device div.ui-colorpicker-spacer {
   width: 30px;
   height: 30px;
   margin-left: 10px;
@@ -179,7 +179,7 @@ ul.items .wooxdimmer-rgb-device div.ui-colorpicker-spacer {
 }
 
 @media only screen and (max-width:380px){
-    ul.items .wooxdimmer-rgb-device .ui-slider {
+    ul.items .light-rgbct-device .ui-slider {
       width: 10em;
     }
 }
