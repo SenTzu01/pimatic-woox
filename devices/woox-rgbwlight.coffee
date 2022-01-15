@@ -1,5 +1,5 @@
 module.exports = (env) ->
-
+  # test
   assert = env.require 'cassert'
   cassert = env.require 'cassert'
   t = env.require('decl-api').types
@@ -139,13 +139,23 @@ module.exports = (env) ->
         )
       return Promise.resolve()
     
-    _onConnected: () => @_connected = true
-    _onDisconnected: () => @_connected = false
+    _onConnected: () => 
+      @base.debug "Connected to device."
+      @_connected = true
+    
+    _onDisconnected: () => 
+      @base.debug "Disconnected from device."
+      @_connected = false
     
     _onData: (data, commandByte) =>
       @base.debug "Updated settings received from Woox device: #{commandByte}"
       @base.debug(util.inspect(data))
+
       if data.dps['1']? then @_setState(data.dps['1'])
+      #if commandByte is 8
+      #  @base.debug "commandByte: #{commandByte}, not processing update."
+      #  return true
+      
       if data.dps['2']? then @_setMode(data.dps['2'])
       
       if data.dps['3']? and @_mode is 'white'
@@ -274,42 +284,41 @@ module.exports = (env) ->
       @_reconnect = undefined
     
     _connectDevice: (count = 1) =>
-      if !@_connected
-        @base.debug("Connection attempt #{count}") 
-        @_tuyaDevice.find().then( () =>
-            @config.ip = @_tuyaDevice.device.ip # Set each time as the devices only support DHCP
-            @config.port = @_tuyaDevice.device.port # Port may change with firmware updates
-            @_tuyaDevice.connect()
-          
-          ).then( () =>
-            @_cancelReconnect()
-          
-          ).catch( (error) =>
-            @base.debug("Connection attempt #{count} failed...")
-            if count < 3
-              @_reconnect = setTimeout(@_connectDevice, 5000, ++count)
-            
-            else
-              @_cancelReconnect()
-              @base.error("Error connecting to the device. Is the device powered on?")
-          
-          )
+      #if !@_connected
+      @base.debug("Connection attempt #{count}") 
+      @_tuyaDevice.find().then( () =>
+        @config.ip = @_tuyaDevice.device.ip # Set each time as the devices only support DHCP
+        @config.port = @_tuyaDevice.device.port # Port may change with firmware updates
+        @_tuyaDevice.connect()
+        
+      ).then( () =>
+        @_cancelReconnect()
+        
+      ).catch( (error) =>
+        @base.debug("Connection attempt #{count} failed...")
+        if count < 3
+          @_reconnect = setTimeout(@_connectDevice, 5000, ++count)
+        
+        else
+          @_cancelReconnect()
+          @base.error("Error connecting to the device. Is the device powered on?")
+      
+      )
       
       return Promise.resolve()
     
     _updateDevice: (settings) =>
       @base.debug("Sending update to device:")
       @base.debug(util.inspect(settings))
-      @_connectDevice()
-        .then( () =>
-          @_tuyaDevice.set({
-            multiple: true
-            data: settings
-          })
-        
-        ).catch( (error) =>
-          @base.error("Error updating device: #{error}")
-        )
+      #@_connectDevice()
+      #  .then( () =>
+      @_tuyaDevice.set({
+        multiple: true
+        data: settings
+      
+      }).catch( (error) =>
+        @base.error("Error updating device: #{error}")
+      )
     
     destroy: ->
       @_cancelReconnect()

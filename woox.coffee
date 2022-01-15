@@ -3,7 +3,7 @@ deviceConfigTemplates =
     name: "Woox RGBW Light"
     class: "WooxRGBWLight"
 
-
+# test
 actionProviders = [
   'woox-color-action'
   'woox-scene-action'
