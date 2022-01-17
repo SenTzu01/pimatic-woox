@@ -1,5 +1,5 @@
 module.exports = (env) ->
-  # test
+  
   assert = env.require 'cassert'
   cassert = env.require 'cassert'
   t = env.require('decl-api').types
@@ -55,9 +55,11 @@ module.exports = (env) ->
       @_saturation = lastState?.saturation?.value or 0
       @_brightness = lastState?.brightness?.value or 100
       @_dimlevel = lastState?.dimlevel?.value or 100
-      @_connected = false
       
-      super()
+      framework.variableManager.waitForInit().then(()=>
+        @setColor(@_color)
+        @setCT(@_ct)
+      )
       
       @_tuyaDevice = new TuyAPI({
         id: @config.deviceID
@@ -69,11 +71,15 @@ module.exports = (env) ->
       @_tuyaDevice.on('data', @_onData)
       @_tuyaDevice.on('error', @_onError)
       
-      process.nextTick( () => @_connectDevice())
+      process.nextTick( () => 
+        @_connectDevice()
+      )
       
       @base.debug "deviceID: #{@config.deviceID}"
       @base.debug "deviceKey: #{@config.deviceKey}"
-    
+      
+      super()
+      
     getTemplateName: -> "wooxdimmer-rgb"
     
     getCt: -> Promise.resolve(@_ct)
@@ -84,87 +90,221 @@ module.exports = (env) ->
     getSaturation: () -> Promise.resolve(@_saturation)
     getBrightness: () -> Promise.resolve(@_brightness)
 
-    turnOn: -> @changeDimlevelTo(100)
-    turnOff: -> @changeDimlevelTo(0)
-
-    changeDimlevelTo: (dimlevel) =>
-      @_validateNumber(dimlevel)
-      state = dimlevel > 0
-      settings = {1: state}
-      if state
-        settings[2] = 'white'
-        settings[3] = @_convertDimlevelToTuyaDimlevel(dimlevel)
-      
-      @_updateDevice(settings)
-        .catch( (error) =>
-          @base.error "#{error}"
-        
-        )
-      return Promise.resolve()
+    turnOn: -> 
+      #@changeDimlevelTo(@_dimlevel)
+      @changeDimlevelTo(100)
     
-    changeHueTo:        (hue)        -> @setColor(@_convertHSBToHEX([hue, @_saturation, @_brightness]))
-    changeSaturationTo: (saturation) -> @setColor(@_convertHSBToHEX([@_hue, saturation, @_brightness]))
-    changeBrightnessTo: (brightness) -> @setColor(@_convertHSBToHEX([@_hue, @_saturation, brightness]))
-    setCT:              (color)      -> @setColor(@_convertCTToHEX(color))
+    turnOff: -> 
+      @changeDimlevelTo(0)
+
+    changeDimlevelTo: (level) =>
+      @base.debug "Changing dimlevel to: #{level}"
+      mode = 'white'
+      state = level > 0
+      console.log "STATE: #{state}"
+      tuyaLevel = @_convertDimlevelToTuyaDimlevel(level)
+      @base.debug("tuyaDimlevel for new dimlevel: #{tuyaLevel}")
+      
+      data = {
+        1: state
+        2: mode
+        3: tuyaLevel
+      }
+      
+      @_updateDevice(data).then( () =>
+        @_setState(state)
+        @_setMode(mode)
+        @_setDimlevel(level)
+        @_setColor("FFFFFF")
+        return Promise.resolve()
+      
+      ).catch( (error) =>
+        @base.error "Error setting dimlevel #{level}: #{error}"
+        return Promise.reject(error)
+      
+      )
+    
+    changeHueTo: (h) ->
+      @base.debug "Changing hue to: #{h}"
+      mode = 'colour'
+      tuyaHex = @_convertHSBToTuyaHex([h, @_saturation, @_brightness]).toUpperCase()
+      @base.debug("tuyaHEX color value for new hue: #{tuyaHex}")
+      
+      data = {
+        1 : true
+        2 : mode
+        5 : tuyaHex
+      }
+      
+      @_updateDevice(data).then( () =>
+        @_setState(true)
+        @_setHue(h)
+        @_setMode(mode)
+        @_setColor(hex)
+        return Promise.resolve()
+      
+      ).catch( (error) =>
+        @base.error "Error setting hue #{h}: #{error}"
+        return Promise.reject(error)
+      
+      )
+    
+    changeSaturationTo: (s) ->
+      @base.debug "Changing saturation to: #{s}"
+      mode = 'colour'
+      tuyaHex = @_convertHSBToTuyaHex([@_hue, s, @_brightness]).toUpperCase()
+      @base.debug("tuyaHEX color value for new saturation: #{tuyaHex}")
+      
+      data = {
+        1 : true
+        2 : mode
+        5 : tuyaHex
+      }
+      
+      @_updateDevice(data).then( () =>
+        @_setState(true)
+        @_setSaturation(s)
+        @_setMode(mode)
+        @_setColor(hex)
+        return Promise.resolve()
+      
+      ).catch( (error) =>
+        @base.error "Error setting saturation #{s}: #{error}"
+        return Promise.reject(error)
+      
+      )
+    
+    changeBrightnessTo: (b) -> 
+      @base.debug "Changing brightness to: #{b}"
+      mode = 'colour'
+      tuyaHex = @_convertHSBToTuyaHex([@_hue, @_saturation, b]).toUpperCase()
+      @base.debug("tuyaHEX color value for new saturation: #{tuyaHex}")
+      
+      data = {
+        1 : true
+        2 : mode
+        5 : tuyaHex
+      }
+      
+      @_updateDevice(data).then( () =>
+        @_setState(true)
+        @_setBrightness(b)
+        @_setDimlevel(b)
+        @_setMode(mode)
+        @_setColor(hex)
+        return Promise.resolve()
+      
+      ).catch( (error) =>
+        @base.error "Error setting brightness #{b}: #{error}"
+        return Promise.reject(error)
+      
+      )
+    
+    setCT: (ct)  ->
+      @base.debug "Changing color temperature to: #{ct}"
+      mode = 'colour'
+      hex = @_convertCTToHEX(ct)
+      [h, s, b] = @_convertHEXToHSB(hex)
+      tuyaHex = @_convertHEXToTuyaHex(hex).toUpperCase()
+      @base.debug("tuyaHEX color value for new color temperature: #{tuyaHex}")
+      
+      data = {
+        1 : true
+        2 : mode
+        5 : tuyaHex
+      }
+      
+      @_updateDevice(data).then( () =>
+        @_setState(true)
+        @_setDimlevel(b)
+        @_setHue(h)
+        @_setSaturation(s)
+        @_setBrightness(b)
+        @_setMode(mode)
+        @_setColor(hex)
+        @_setCt(ct)
+        return Promise.resolve()
+      
+      ).catch( (error) =>
+        @base.error "Error setting color temperature #{ct}: #{error}"
+        return Promise.reject(error)
+      
+      )
     
     setEffect: (effect, color = @_color) =>
-      @base.debug("Received effect value: #{effect} with color #{color}")
-      settings = {
-        1: true
+      @base.debug("Setting effect: #{effect.scene} with color: #{color}")
+      
+      data = {
+        1 : true
         2: effect.scene
       }
-      settings[effect.dps] = effect.value + color
+      data[effect.dps] = effect.value + color
       
-      @_updateDevice(settings)
-        .catch( (error) =>
-          @base.error "#{error}"
-        )
-      return Promise.resolve()
+      @_updateDevice(data).then( () =>
+        @_setState(true)
+        @_setMode(effect.scene)
+        return Promise.resolve()
+      
+      ).catch( (error) =>
+        @base.error "Error setting effect #{effect.scene}: #{error}"
+        return Promise.reject(error)
+      )
     
     setColor: (hex) =>
+      @base.debug("Changing color to: #{hex}")
+      mode = 'colour'
       @_validateHEX(hex)
-      hex = hex.toUpperCase()
-      @base.debug("Received HEX color value: #{hex}")
+      tuyaHex = @_convertHEXToTuyaHex(hex).toUpperCase()
+      [h, s, b] = @_convertHEXToHSB(hex)
+      @base.debug("tuyaHEX color value for new color: #{tuyaHex}")
+      data = {
+        1 : true
+        2: mode
+        5: tuyaHex
+      }
       
-      state = @_convertHEXToHSB(hex)[2] > 0
-      settings = {1: state}
+      @_updateDevice(data).then( () =>
+        @_setState(true)
+        @_setDimlevel(b)
+        @_setHue(h)
+        @_setSaturation(s)
+        @_setBrightness(b)
+        @_setMode(mode)
+        @_setColor(hex)
+        return Promise.resolve()
       
-      if state
-        settings['2'] = 'colour'
-        settings['5'] = @_convertHEXToTuyaHex(hex)
+      ).catch( (error) =>
+        @base.error "Error setting color #{hex}: #{error}"
       
-      @_updateDevice(settings)
-        .catch( (error) =>
-          @base.error "#{error}"
-        )
-      return Promise.resolve()
+      )
     
     _onConnected: () => 
       @base.debug "Connected to device."
-      @_connected = true
     
     _onDisconnected: () => 
       @base.debug "Disconnected from device."
-      @_connected = false
     
     _onData: (data, commandByte) =>
       @base.debug "Updated settings received from Woox device: #{commandByte}"
       @base.debug(util.inspect(data))
-
-      if data.dps['1']? then @_setState(data.dps['1'])
-      #if commandByte is 8
-      #  @base.debug "commandByte: #{commandByte}, not processing update."
-      #  return true
       
+      ###
+      if commandByte is 8
+        @base.debug "commandByte: #{commandByte}, not processing update."
+        return true
+      
+      if data.dps['1']? then @_setState(data.dps['1'])
       if data.dps['2']? then @_setMode(data.dps['2'])
       
-      if data.dps['3']? and @_mode is 'white'
+      if data.dps['3']?
         dimlevel = @_convertTuyaDimlevelToDimlevel(data.dps['3'])
-        @_setColor('FFFFFF')
-        @_setHue(0)
-        @_setSaturation(0)
-        @_setBrightness(dimlevel)
         @_setDimlevel(dimlevel)
+        if @_mode is 'white'
+          @_setColor('FFFFFF')
+          @_setHue(0)
+          @_setSaturation(0)
+          @_setBrightness(dimlevel)
+          
         
       if data.dps['5']? and @_mode is 'colour'
         hsb = @_convertTuyaHexToHSB(data.dps['5'])
@@ -173,17 +313,20 @@ module.exports = (env) ->
         @_setSaturation(hsb[1])
         @_setBrightness(hsb[2])
         @_setDimlevel(hsb[2])
-
-    _onError: (error) -> return true # Workaround on tuyapi module, if event is not handled exception is thrown.
+      ###
+    
+    _onError: (error) => 
+      @base.debug "Error received from device: #{error}"
+      return true# Workaround on tuyapi module, if event is not handled exception is thrown.
     
     _setMode: (mode) =>
       if @_mode is mode then return
+      
       @base.debug("Set @_mode to: #{mode}")
       @_mode = mode
       @emit "mode", mode
     
     _setColor: (value) =>
-      @_validateHEX(value)
       if @_color is value then return
       
       @base.debug("Setting @_color to: #{value}")
@@ -191,7 +334,6 @@ module.exports = (env) ->
       @emit "color", value.toString()
       
     _setCt: (color) =>
-      @_validateNumber(color)
       if @_ct is color then return
       
       @base.debug("Setting @_ct to: #{color}")
@@ -199,7 +341,6 @@ module.exports = (env) ->
       @emit "ct", color
     
     _setHue: (hue) =>
-      @_validateNumber(hue, 0, 360)
       if @_hue is hue then return
       
       @base.debug("Setting @_hue to: #{hue}")
@@ -207,7 +348,6 @@ module.exports = (env) ->
       @emit "hue", hue
     
     _setSaturation: (saturation) =>
-      @_validateNumber(saturation)
       if @_saturation is saturation then return
       
       @base.debug("Setting @_saturation to: #{saturation}")
@@ -215,7 +355,6 @@ module.exports = (env) ->
       @emit "saturation", saturation
 
     _setBrightness: (brightness) =>
-      @_validateNumber(brightness)
       if @_brightness is brightness then return
       
       @base.debug("Setting @_brightness to: #{brightness}")
@@ -235,10 +374,10 @@ module.exports = (env) ->
       rgb = tempConvert.colorTemperature2rgb(ct)
       return colorConvert.rgb.hex([rgb.red, rgb.green, rgb.blue])
     
-    _convertHSBToHEX: (hsb) => colorConvert.hsv.hex(hsb)
+    #_convertHSBToHEX: (hsb) => colorConvert.hsv.hex(hsb)
     _convertHEXToHSB: (hex) => colorConvert.hex.hsv(hex)
-    _convertHEXToTuyaHex: (value) => @_convertHSBToTuyaHex(@_convertHEXToHSB(value))
-    _convertTuyaHexToHEX: (value) => colorConvert.hsv.hex(@_convertTuyaHexToHSB(value))
+    _convertHEXToTuyaHex: (hex) => @_convertHSBToTuyaHex(colorConvert.hex.hsv(hex))
+    #_convertTuyaHexToHEX: (value) => colorConvert.hsv.hex(@_convertTuyaHexToHSB(value))
     
     _convertHSBToTuyaHex: (value) =>
       h = value[0]
@@ -269,22 +408,23 @@ module.exports = (env) ->
       hex = rgb.join('')
       return hex + hsb
     
+    ###
     _convertTuyaHexToHSB: (value) =>
       hsb = (value || '0000000000ffff').match(/^.{6}([0-9a-f]{4})([0-9a-f]{2})([0-9a-f]{2})$/i) || [0, '0', 'ff', 'ff']
       h = hsb[1]
       s = hsb[2]
       b = hsb[3]
       return [ parseInt(h, 16).toString(), Math.round(parseInt(s, 16) / 2.55).toString(), Math.round(parseInt(b, 16) / 2.55).toString() ]
+    ###
     
     _convertDimlevelToTuyaDimlevel: (value) => Math.round(2.55 * value)
-    _convertTuyaDimlevelToDimlevel: (value) => Math.round(value / 2.55)
+    #_convertTuyaDimlevelToDimlevel: (value) => Math.round(value / 2.55)
     
-    _cancelReconnect: () =>
-      clearTimeout(@_reconnect)
-      @_reconnect = undefined
+    #_cancelReconnect: () =>
+    #  clearTimeout(@_reconnect)
+    #  @_reconnect = undefined
     
     _connectDevice: (count = 1) =>
-      #if !@_connected
       @base.debug("Connection attempt #{count}") 
       @_tuyaDevice.find().then( () =>
         @config.ip = @_tuyaDevice.device.ip # Set each time as the devices only support DHCP
@@ -292,36 +432,44 @@ module.exports = (env) ->
         @_tuyaDevice.connect()
         
       ).then( () =>
-        @_cancelReconnect()
+        @base.debug "Connection succesful"
+        return Promise.resolve()
+        #@_cancelReconnect()
         
       ).catch( (error) =>
-        @base.debug("Connection attempt #{count} failed...")
-        if count < 3
-          @_reconnect = setTimeout(@_connectDevice, 5000, ++count)
+        #@base.debug("Connection attempt #{count} failed...")
+        #if count < 3
+        #  @_reconnect = setTimeout(@_connectDevice, 5000, ++count)
         
-        else
-          @_cancelReconnect()
-          @base.error("Error connecting to the device. Is the device powered on?")
+        #else
+        #  @_cancelReconnect()
+        @base.error("Error connecting to the device. Is the device powered on?")
+        return Promise.reject(error)
       
       )
       
       return Promise.resolve()
     
-    _updateDevice: (settings) =>
-      @base.debug("Sending update to device:")
-      @base.debug(util.inspect(settings))
-      #@_connectDevice()
-      #  .then( () =>
+    _updateDevice: (data) =>
+      @base.debug("Sending updated settings to device:")
+      @base.debug(util.inspect(data))
+
       @_tuyaDevice.set({
         multiple: true
-        data: settings
+        data: data
       
-      }).catch( (error) =>
+      }).then( () =>
+        @base.debug "Device accepted updated settings"
+        return Promise.resolve()
+      
+      ).catch( (error) =>
         @base.error("Error updating device: #{error}")
+        return Promise.reject(error)
+      
       )
     
     destroy: ->
-      @_cancelReconnect()
+      #@_cancelReconnect()
       @_tuyaDevice.disconnect()
       @_tuyaDevice.removeListener('connected', @_onConnected)
       @_tuyaDevice.removeListener('disconnected', @_onDisconnected)
